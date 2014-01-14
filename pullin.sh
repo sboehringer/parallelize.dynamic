@@ -19,5 +19,5 @@ cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R R
 #
 #	<p> R (just once)
 #
-cp $RPRIVATE/Rparallel.R $RPRIVATE/Rparallel.back.R $RPRIVATE/Rparallel_setEnable_pkg.R R
-cp $RPRIVATE/Rparallel_functions_parallel.R $RPRIVATE/Rparallel_functions_std.R inst/R
+#cp $RPRIVATE/Rparallel.R $RPRIVATE/Rparallel.back.R $RPRIVATE/Rparallel_setEnable_pkg.R R
+#cp $RPRIVATE/Rparallel_functions_parallel.R $RPRIVATE/Rparallel_functions_std.R inst/R
