@@ -128,7 +128,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 
 #main $#ARGV @ARGV %ENV
 #	initLog(2);
-	$o = {
+	my $o = {
 		config => 'config.cfg',
 		outputDir => firstDef($ENV{QSUB_LOG_DIR}, 'qsub_jobOutputs'),
 		queue => firstDef($ENV{QSUB_QUEUE}, 'default'),
@@ -137,8 +137,13 @@ sub submitCommand { my ($cmd, $o) = @_;
 		exports => 'PATH',
 		memory => firstDef($ENV{QSUB_MEMORY}, '4G')
 	};
-	splice(@ARGV, 0, 0, ($ENV{QSUB_OPTIONS})) if ($ENV{QSUB_OPTIONS} ne '');
-	$result = int(grep { $_ eq '--' } @ARGV) == 0? 1
+	my $optionsPresent = int(grep { $_ eq '--' } @ARGV) > 0;
+	# <!><i> proper command line splitting
+	if ($ENV{QSUB_OPTIONS} ne '') {
+		splice(@ARGV, 0, 0, (split(/\s+/, $ENV{QSUB_OPTIONS}), $optionsPresent? (): '--'));
+		$optionsPresent = 1;
+	}
+	my $result = !$optionsPresent? 1
 	: GetOptionsStandard($o,
 		'help', 'jid=s', 'jidReplace=s', 'exports=s',
 		'waitForJids=s', 'outputDir=s', 'unquote!', 'queue=s', 'priority=i', 'cmdFromFile=s', 'checkpointing',
@@ -153,7 +158,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	}
 #	$c = readConfigFile($o->{config});
 #	$cred = KeyRing->new()->handleCredentials($o->{credentials}, '.this_cookie') || exit(0);
-	$cmd = $o->{unquote}? join(' ', @ARGV): join(' ', map { qsS($_) } @ARGV);
+	my $cmd = $o->{unquote}? join(' ', @ARGV): join(' ', map { qsS($_) } @ARGV);
 	$cmd .= readFile($o->{cmdFromFile}) if (defined($o->{cmdFromFile}));
 	#Log($_) foreach (@ARGV);
 	Log("Command to run:\n$cmd", 3);

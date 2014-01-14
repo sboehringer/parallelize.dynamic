@@ -3,12 +3,13 @@ require 5.000;
 require Exporter;
 
 @ISA       = qw(Exporter);
-@EXPORT    = qw(&tempFileName &removeTempFiles &readCommand &readFile &writeFile &scanDir &copyTree &searchOrphanedFiles &removeEmptySubdirs &dirList &dirListPattern &dirListDeep &fileList &FileList &searchOutputPattern &normalizedPath &relativePath &quoteRegex &uniqFileName &readStdin &restoreRedirect &redirectInOut &germ2ascii &appendStringToPath &pipeStringToCommand &pipeStringToCommandSystem &mergeDictToString &mapTr &mapS $DONT_REMOVE_TEMP_FILES &readFileHandle &trimmStr &deepTrimmStr &removeWS &fileLength &processList &pidsForWordsPresentAbsent &initLog &Log &cmdNm &splitPath &resourcePath &resourcePathesOfType &splitPathDict &progressPrint &percentagePrint &firstFile &firstFileLocation &readFileFirstLocation &allowUniqueProgramInstanceOnly &allowUniqueProgramInstanceOnly &write2Command &ipAddress &packDir &unpackDir &System $YES $NO &interpolatedPlistFromPath &GetOptionsStandard &StartStandardScript &callTriggersFromOptions &doLogOnly &interpolatedPropertyFromString &existsOnHost &existsFile &mergePdfs &SystemWithInputOutput &depthSearchDir &diskUsage &searchMissingFiles &whichFilesInTree &setLogOnly &readConfigFile &statDict &findDir &tempEdit &Mkpath &Mkdir &Rename &Rmdir &Unlink &Move &Symlink &removeBrokenLinks &testService &testIfMount &qs &qsQ &formatTableComponents &formatTable);
+@EXPORT    = qw(&tempFileName &removeTempFiles &readCommand &readFile &writeFile &scanDir &copyTree &searchOrphanedFiles &removeEmptySubdirs &dirList &dirListPattern &dirListDeep &fileList &FileList &searchOutputPattern &normalizedPath &relativePath &quoteRegex &uniqFileName &readStdin &restoreRedirect &redirectInOut &germ2ascii &appendStringToPath &pipeStringToCommand &pipeStringToCommandSystem &mergeDictToString &mapTr &mapS $DONT_REMOVE_TEMP_FILES &readFileHandle &trimmStr &deepTrimmStr &removeWS &fileLength &processList &pidsForWordsPresentAbsent &initLog &Log &cmdNm &splitPath &resourcePath &resourcePathesOfType &splitPathDict &progressPrint &percentagePrint &firstFile &firstFileLocation &readFileFirstLocation &allowUniqueProgramInstanceOnly &allowUniqueProgramInstanceOnly &write2Command &ipAddress &packDir &unpackDir &System $YES $NO &interpolatedPlistFromPath &GetOptionsStandard &StartStandardScript &callTriggersFromOptions &doLogOnly &interpolatedPropertyFromString &existsOnHost &existsFile &mergePdfs &SystemWithInputOutput &depthSearchDir &diskUsage &searchMissingFiles &whichFilesInTree &setLogOnly &readConfigFile &statDict &Stat &findDir &tempEdit &Mkpath &Mkdir &Rename &Rmdir &Unlink &Move &Symlink &removeBrokenLinks &testService &testIfMount &qs &qsQ &formatTableComponents &formatTable);
 
 #@EXPORT_OK = qw($sally @listabob %harry func3);
 
 #use lib '/LocalDeveloper/Libraries/perl5';
 use Encode;
+use utf8;
 use File::Copy;
 use File::Path;
 use IO::Handle;
@@ -471,6 +472,12 @@ sub findDir { my ($path, $returnDirs) = @_;
 	return $l;
 }
 
+my @StatComps = ('dev', 'ino', 'mode' , 'nlink', 'uid', 'gid', 'rdev',
+	'size', 'atime', 'mtime', 'ctime', 'blksize', 'blocks');
+sub Stat { my ($path) = @_;
+	return makeHash(\@StatComps, [stat($path)]);
+}
+
 sub statDict { my ($path) = @_;
 	my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
 		$atime,$mtime,$ctime,$blksize,$blocks) = stat($path);
@@ -685,7 +692,6 @@ sub relativePath { my($absCurr, $absDest, $sep, $ignoreCase)=@_;
 	$app=(((chop($curD) eq $sep) && ($#dest-$i>=0))? $sep: '');
 	return "..$sep" x ($#curr-$i).join($sep,splice(@dest,$i)).$app;
 }
-
 sub quoteRegex { return join('\\',split(/(?=\.|\?|\=|\*|\\)/,$_[0])); }
 
 sub redirectInOut { my($saveName, $inPath, $outPath)=@_;
@@ -1000,8 +1006,11 @@ sub StartStandardScript { my ($defaults, $options, %sso) = @_;
 		$o.$oa
 	} (@options, @triggers);
 	# <!> reset $o in order to prevent Getopt::Long from calling triggers interpreted as callbacks
-	$o->{$_} = undef foreach (@triggers);
-	my $result = GetOptionsStandard($o, @options);
+	my $od = { %$o };	# option defaults
+	$od->{$_} = undef foreach (@triggers);
+	my $os = {};	# specified options
+	my $result = GetOptionsStandard($os, @options);
+	$o = { %$od, %$os };
 	my $programName = cmdNm();
 
 	if ($o->{help} || !$result || ($noArgs && $o->{helpOnEmptyCall})) {
@@ -1009,15 +1018,15 @@ sub StartStandardScript { my ($defaults, $options, %sso) = @_;
 		exit(!$result);
 	}
 	my $c = {};
-	$c = readConfigFile($o->{config}) if (defined($o->{config}));
+	$c = readConfigFile($o->{config}, { default => {} }) if (defined($o->{config}));
 	my $cred = undef;
 	if (defined($o->{credentials})) {
-		eval('use KeyRing');
+		load('KeyRing');
 		$cred = KeyRing->new()->handleCredentials($o->{credentials},
 			'.this_cookie.'. $programName) || exit(0)
 	}
 	my $deepR = { o => $o, c => $c, cred => $cred, _triggers => $subs };
-	my $flatR = { %$c, %$o, %$cred, _triggers => $subs };
+	my $flatR = { %$od, %$c, %$os, %$cred, _triggers => $subs };
 	my $r = $o->{returnDeepStruct}? $deepR: $flatR;
 	# handle call triggers, triggering might be delayed
 	callTriggersFromOptions($r, @ARGV) if ($o->{callTriggers});
@@ -1051,11 +1060,11 @@ sub splitPath { my ($path, $doTestDir, $fileNameToSubstitue)=@_;
 #	dirComponents:	an array of the dirs leading to the file
 #	isRelative:	does not start with '/'
 
-sub splitPathDict { my ($path, $doTestDir, $fileNameToSubstitue)=@_;
+sub splitPathDict { my ($path, $doTestDir, $fileNameToSubstitue, %c)=@_;
 	my ($user, $host, $pathN);
 	$path = $pathN
-		if (($user, $host, $pathN)
-		= ($path =~ m{^(?:(\w+)\@)?(?:(\w+):)(.*)}goi));
+		if ((($user, $host, $pathN)
+		= ($path =~ m{^(?:(\w+)\@)?(?:(\w+):)(.*)}goi)) && $c{testRemote});
 	my ($directory, $filename, $ext) = splitPath($path, $doTestDir, $fileNameToSubstitue);
 	my $base = defined($ext)? substr($filename, 0, - length($ext) - 1): $filename;
 	my $dirPrefix = defined($directory)? ($directory eq '/'? '/': "$directory/"): '';
@@ -1205,6 +1214,11 @@ sub qs { my $p = qsB($_[0]); $p =~ s{'}{'\\''}sog; return "'$p'"; }
 		format => '%*.0f%%',
 		width => sub { $_[0] - 1 },
 		transform => sub { $_[0] * 100 }
+	},
+	date => {
+		format => '%*s',
+		width => sub { $_[0] },
+		transform => sub { localtime($_[0]) }
 	}
 );
 
@@ -1222,7 +1236,14 @@ sub formatTableRows { my ($d, $t, $cols) = @_;
 		firstDef($Set::tableFormats{$_->{format}}{format}, $_->{format})
 	} @{$d->{columns}}{@$cols});
 	my @rows = map { my $r = $_;
-		sprintf($fmt, map { my $v = $r->{$_};
+		sprintf($fmt, map { my $c = $_;
+			my $v;
+			if (ref($r) eq 'HASH') {
+				$v = $r->{$c};
+			} else {
+				my $code = ref($r)->can($c);
+				$v = $r->$code();
+			}
 			my $f = $d->{columns}{$_}{format};
 			my $tr = $Set::tableFormats{$f}{transform};
 			$v = $tr->($v) if (defined($tr));
@@ -1243,6 +1264,7 @@ sub formatTableComponents { my ($d, $rows, $cols) = @_;
 	};
 }
 sub formatTable { my ($d, $rows, $cols) = @_;
+	$cols = $d->{print} if (!defined($cols));
 	my $t = formatTableComponents($d, $rows, $cols);
 
 	return join("\n", ($t->{header}, $t->{separator}, @{$t->{rows}}));

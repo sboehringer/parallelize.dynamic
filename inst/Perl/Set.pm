@@ -7,7 +7,7 @@ require	Exporter;
 
 @ISA		= qw(Exporter);
 
-@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &firstDef &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces);
+@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround);
 
 use TempFileNames;
 
@@ -107,6 +107,11 @@ sub definedArray { my ($array) = @_;
 	my $ret = [];
 	map { push(@{$ret}, $_) if (defined($_)) } @{$array};
 	return $ret;
+}
+
+sub definedDict { my (%h) = @_;
+	my @k = grep { defined($h{$_}) } keys %h;
+	return (map { ($_, $h{$_}) } @k);
 }
 
 sub	max { my (@arr) = @_;
@@ -267,9 +272,10 @@ sub order { my ($arr, $cmp) = @_;
 	$cmp = $cmpFcts{$cmp} if (defined($cmp) && ref($cmp) eq '');
 	$cmp = $cmpFcts{'int'} if (!defined($cmp));
 	my $va = [];
+	# untested
+	#return sort { &$cmp($arr->[$a], $arr->[$b]) } 0 .. $#$arr;
 	return sort { &$cmp($arr->[$a], $arr->[$b]) } 0 .. (int(@$arr) - 1);
 }
-
 
 #	other functions
 
@@ -661,6 +667,35 @@ sub whichMax { my ($see, $numeric) = @_;
 		$mxI = $i if ($see->[$i] > $see->[$mxI]);
 	}
 	return $mxI;
+}
+
+sub hashSlice { my ($h, $keys) = @_;
+	return makeHash($keys, [@{$h}{@$keys}]);
+}
+sub hashMin { my ($h, $keys) = @_;
+	my $k = minus([keys %$h], $keys);
+	return makeHash($k, [@{$h}{$k}]);
+}
+
+#
+#	<p> numeric funcions
+#
+
+sub moddiv { my ($v, %a) = @_;
+	%a = ((base => 0, step => 1), %a);
+	my $q = int(($v - $a{base}) / $a{step});
+	my $r = $v - $q * $a{step};
+	my %r = ( quotient => $q, remainder => $r );
+	return %r;
+}
+
+sub modfloor { my ($v, %a) = @_;
+	my %r = moddiv($v, %a);
+	return $r{quotient} * $a{step};
+}
+
+sub modround { my ($v, %a) = @_;
+	return modfloor($v + $a{step}/2, %a);
 }
 
 1;

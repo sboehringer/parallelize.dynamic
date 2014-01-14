@@ -8,3 +8,16 @@
 #	<p> perl dependencies
 #
 
+PERLLIB=~/src/privatePerl
+cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm ~/bin/qsub.pl inst/Perl
+
+#
+#	<p> R
+#
+cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R R
+
+#
+#	<p> R (just once)
+#
+cp $RPRIVATE/Rparallel.R $RPRIVATE/Rparallel.back.R $RPRIVATE/Rparallel_setEnable_pkg.R R
+cp $RPRIVATE/Rparallel_functions_parallel.R $RPRIVATE/Rparallel_functions_std.R inst/R
