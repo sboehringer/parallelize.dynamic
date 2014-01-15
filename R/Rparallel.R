@@ -54,7 +54,7 @@ library('tools');
 #' @exportClass ParallelizeBackend
 #' @exportClass ParallelizeBackendLocal
 #' @exportClass ParallelizeBackendOGSremote
-#' @exportClass ParallelizeBackendSnow
+#' @exportClass 'ParallelizeBackendSnow'
 
 #
 #	<p> Lapply state reference classes
