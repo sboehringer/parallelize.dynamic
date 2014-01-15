@@ -1,13 +1,27 @@
 export(Apply)
-export(Lapply)
-export(Log)
-export(Log.level)
-export(Log.setLevel)
-exportMethods(finalizeParallelization getResult
+exportClasses(LapplyExecutionState",
 Class \code{"LapplyState"}
 
 This class is the base class for classes reflecting different stages of the
 parallelization process: probing and running.)
+export(Lapply)
+export(Log)
+export(Log.level)
+export(Log.setLevel)
+exportMethods(finalizeParallelization)
+exportMethods(getResult)
+exportMethods(initialize)
+exportMethods(initScheduling)
+exportMethods(isSynchroneous)
+exportMethods(lapply_dispatch)
+exportMethods(lapply_dispatchFinalize)
+exportMethods(lapply_results)
+exportMethods(parallelize_backend)
+exportMethods(performParallelizationStep)
+exportMethods(pollParallelization)
+exportMethods(restoreParallelizationState)
+exportMethods(saveParallelizationState)
+exportMethods(scheduleNextParallelization)
 export(parallelize)
 export(parallelize_call)
 export(parallelize_initialize)

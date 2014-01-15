@@ -35,23 +35,22 @@ library('tools');
 #' @keywords package
 
 #' @export Apply Sapply Lapply parallelize parallelize_call parallelize_initialize parallelize_setEnable tempcodefile Log Log.setLevel Log.level readFile
-#' @exportMethod finalizeParallelization getResult
+#' @exportMethod finalizeParallelization
+#' @exportMethod getResult
+#' @exportMethod initialize
+#' @exportMethod initScheduling
+#' @exportMethod isSynchroneous
+#' @exportMethod lapply_dispatchFinalize
+#' @exportMethod lapply_dispatch
+#' @exportMethod lapply_results
+#' @exportMethod parallelize_backend
+#' @exportMethod performParallelizationStep
+#' @exportMethod pollParallelization
+#' @exportMethod restoreParallelizationState
+#' @exportMethod saveParallelizationState
+#' @exportMethod scheduleNextParallelization
+#' @exportClass LapplyExecutionState",
 
-#     "initialize",
-#     "initScheduling",
-#     "isSynchroneous",
-#     "lapply_dispatchFinalize",
-#     "lapply_dispatch",
-#     "lapply_results",
-#     "parallelize_backend",
-#     "performParallelizationStep",
-#     "pollParallelization",
-#     "restoreParallelizationState",
-#     "saveParallelizationState",
-#     "scheduleNextParallelization" 
-# )
-# exportClasses(
-#     "LapplyExecutionState",
 #      "LapplyFreezer",
 #      "ParallelizeBackend",
 #      "ParallelizeBackendLocal",
