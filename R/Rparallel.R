@@ -626,7 +626,7 @@ if (!exists('parallelize_env')) parallelize_env <- new.env();
 #'     ),
 #'     `ogs-3` = list(
 #'       backend = 'OGSremote',
-#'       remote = 'user\\@localhost:tmp/remote/test',
+#'       remote = 'user@@localhost:tmp/remote/test',
 #'       freezerClass = 'LapplyPersistentFreezer',
 #'       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
 #'       stateDir = sprintf('%s/tmp/remote/test_local', tempdir()),

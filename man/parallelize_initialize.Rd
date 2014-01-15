@@ -83,7 +83,25 @@ config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = lis
     ),
     `ogs-3` = list(
       backend = 'OGSremote',
-      remote = 'user\\\\
+      remote = 'user@localhost:tmp/remote/test',
+      freezerClass = 'LapplyPersistentFreezer',
+      sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
+      stateDir = sprintf('\%s/tmp/remote/test_local', tempdir()),
+      qsubOptions = sprintf('--queue all.q --logLevel \%d', 2),
+      doSaveResult = TRUE
+    )
+  ));
+  # run ensuing parallelizations locally, ignore result produced earlier
+  parallelize_initialize(config, backend = "local", force_rerun = FALSE);
+  # run ensuing parallelizations on the snow cluster defined in the snow backend section
+  parallelize_initialize(config, backend = "local");
+  # run ensuing parallelizations on a local Open Grid Scheduler
+  parallelize_initialize(config, backend = "ogs-1");
+  # run same analysis as above with different scheduling options
+  parallelize_initialize(config, backend = "ogs-2");
+  # run same analysis on a remote Opend Grid Scheduler
+  # user 'user' on machine 'localhost' is used
+  parallelize_initialize(config, backend = "ogs-3");
 }
 \author{
   Stefan Böhringer <r-packages@s-boehringer.org>
