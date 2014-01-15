@@ -35,8 +35,8 @@ library('tools');
 #' @keywords package
 
 #' @export Apply Sapply Lapply parallelize parallelize_call parallelize_initialize parallelize_setEnable tempcodefile Log Log.setLevel Log.level readFile
-#' @exportMethod finalizeParallelization#
-#     "getResult",
+#' @exportMethod finalizeParallelization getResult
+
 #     "initialize",
 #     "initScheduling",
 #     "isSynchroneous",

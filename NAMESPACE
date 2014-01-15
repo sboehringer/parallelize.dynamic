@@ -3,7 +3,7 @@ export(Lapply)
 export(Log)
 export(Log.level)
 export(Log.setLevel)
-exportMethods(finalizeParallelization#
+exportMethods(finalizeParallelization getResult
 Class \code{"LapplyState"}
 
 This class is the base class for classes reflecting different stages of the
