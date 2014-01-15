@@ -1,0 +1,15 @@
+Df_.Rd
+Seq.Rd
+Sprintf.Rd
+Substr.Rd
+count2blocks.Rd
+file.locate.Rd
+inverseOrder.Rd
+inverseOrder_fromOrder.Rd
+iterateModels.Rd
+order_align.Rd
+order_align_fromOrder.Rd
+reshape.long.Rd
+subListFromRaggedIdcs.Rd
+subListFromRaggedLists.Rd
+uniqueByCols.Rd
