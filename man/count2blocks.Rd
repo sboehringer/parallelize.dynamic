@@ -1,0 +1,21 @@
+\name{count2blocks}
+\alias{count2blocks}
+\title{Produce index pairs for vector of counts}
+\usage{
+  count2blocks(counts)
+}
+\arguments{
+  \item{counts}{vector of integers specifying counts}
+}
+\value{
+  vector of pairs of indeces indicating the first and last
+  element in a vector for the blocks specified by
+  \code{counts}
+}
+\description{
+  Produce index pairs for vector of counts
+}
+\examples{
+count2blocks(c(1, 5, 3))
+}
+

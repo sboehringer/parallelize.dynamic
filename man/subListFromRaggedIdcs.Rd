@@ -1,0 +1,22 @@
+\name{subListFromRaggedIdcs}
+\alias{subListFromRaggedIdcs}
+\title{Extract parts of a nested structure based on the range from..to}
+\usage{
+  subListFromRaggedIdcs(Ns, from = 1, to = sum(segments))
+}
+\arguments{
+  \item{Ns}{Vector of integers that specify the size of the
+  substructure}
+}
+\value{
+  Return list of list, where each basic list contains key
+  \code{segment} (which of the elements of Ns) and key
+  \code{range}, a list with elements \code{from} and
+  \code{to}, specifying which elements to use from that
+  segment.
+}
+\description{
+  Extract parts of a nested structure based on the range
+  from..to
+}
+

@@ -1,0 +1,60 @@
+\docType{class}
+\name{ParallelizeBackend-class}
+\alias{finalizeParallelization}
+\alias{finalizeParallelization,ParallelizeBackend-method}
+\alias{getResult}
+\alias{getResult,ParallelizeBackend-method}
+\alias{initialize}
+\alias{initialize,ParallelizeBackend-method}
+\alias{initScheduling}
+\alias{initScheduling,ParallelizeBackend-method}
+\alias{isSynchroneous}
+\alias{isSynchroneous,ParallelizeBackend-method}
+\alias{lapply_dispatch}
+\alias{lapply_dispatchFinalize}
+\alias{lapply_dispatchFinalize,ParallelizeBackend-method}
+\alias{lapply_dispatch,ParallelizeBackend-method}
+\alias{lapply_results}
+\alias{lapply_results,ParallelizeBackend-method}
+\alias{parallelize_backend}
+\alias{ParallelizeBackend-class}
+\alias{parallelize_backend,ParallelizeBackend-method}
+\alias{performParallelizationStep}
+\alias{performParallelizationStep,ParallelizeBackend-method}
+\alias{pollParallelization}
+\alias{pollParallelization,ParallelizeBackend-method}
+\alias{restoreParallelizationState}
+\alias{restoreParallelizationState,ParallelizeBackend-method}
+\alias{saveParallelizationState}
+\alias{saveParallelizationState,ParallelizeBackend-method}
+\alias{scheduleNextParallelization}
+\alias{scheduleNextParallelization,ParallelizeBackend-method}
+\title{Class \code{"ParallelizeBackend"}}
+\description{
+  Base class for parallelization backends. Please refer to
+  documentation of the methods individually for more
+  complete documentation.
+}
+\section{Objects from the Class}{
+  Objects can be created by calls of the form
+  \code{new("ParallelizeBackend", config, signature)}. %%
+  ~~ describe objects here ~~ Config is a list containing
+  parameters and signature is a character string that
+  uniquely identifies the computation that is to be
+  parallelized.
+}
+\examples{
+showClass("ParallelizeBackend")
+}
+\author{
+  Stefan Böhringer <r-packages@s-boehringer.org>
+}
+\seealso{
+  %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %%
+  ~~or \code{\linkS4class{CLASSNAME}} for links to other
+  classes ~~~ \code{\linkS4class{ParallelizeBackendLocal}},
+  \code{\linkS4class{ParallelizeBackendSnow}},
+  \code{\linkS4class{ParallelizeBackendOGSremote}}
+}
+\keyword{classes}
+
