@@ -566,6 +566,7 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 if (!exists('parallelize_env')) parallelize_env <- new.env();
 
 # force_rerun instructs backends to ignore state-retaining files and re-run all computations
+
 #' Initialize dynamic parallelization of ensuing parallelize calls
 #' 
 #' Initialzes the parallelization process. The config argument describes all
