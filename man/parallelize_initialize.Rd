@@ -53,9 +53,26 @@
   for the ensuing parallelization from that description.
 }
 \details{
-  \code{config} is a list with the following elements
-  \code{ config = list(max_depth = 5, parallel_count = 24,
-  offline = TRUE, backends = list(...)  ); }
+  \code{Lapply_config} is a list with the following
+  elements \itemize{ \item max_depth: maximal depth to
+  investigate during probing \item parallel_count: provide
+  default for the number of parallel jobs to generate,
+  overwritten by the function argument \item offline: this
+  option determines whether parallelize returns before
+  performing the ramp-down. This is relevant for backends
+  running on remote machines. See especially the
+  \code{OGSremote} backend.  \item backends: a list that
+  contains parameters specific for backends. The name of
+  each element should be the name of a backend without the
+  prefix \code{ParallelizeBackend}. Each of the elements is
+  itself a list with the paramters. If several
+  configurations are required for a certain backend - e.g.
+  a batch-queuing system for which different queues are to
+  be used - the name can be chosen arbitrarily. Then the
+  element must contain an element with name \code{backend}
+  that specifies the backend as above (example below). For
+  the backend specific parameters see the class
+  documentation of the backends.  }
 }
 \examples{
 config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = list(
@@ -107,8 +124,11 @@ config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = lis
   Stefan Böhringer <r-packages@s-boehringer.org>
 }
 \seealso{
-  \code{\link{parallelize}}, \code{\link{parallelize_call}}
+  \code{\link{parallelize}},
+  \code{\link{parallelize_call}},
+  \code{\linkS4class{ParallelizeBackend}},
+  \code{\linkS4class{ParallelizeBackendLocal}},
+  \code{\linkS4class{ParallelizeBackendSnow}},
+  \code{\linkS4class{ParallelizeBackendOGSremote}}
 }
-\keyword{~kwd1}
-\keyword{~kwd2}
 

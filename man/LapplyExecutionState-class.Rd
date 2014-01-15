@@ -24,9 +24,7 @@ showClass("LapplyExecutionState")
 }
 \seealso{
   \code{\link{LapplyFreezer-class}},
-  \code{\link{LapplyState-class}} %% ~~or
-  \code{\linkS4class{CLASSNAME}} for links to other classes
-  ~~~
+  \code{\link{LapplyState-class}}
 }
 \keyword{classes}
 

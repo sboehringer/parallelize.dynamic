@@ -202,25 +202,27 @@ setMethod('getResult', 'ParallelizeBackend', function(self) {
 #
 
 #' Class \code{"ParallelizeBackendLocal"}
-#' 
-#' %% ~~ A concise (1-5 lines) description of what the class is. ~~ Backend
-#' class implementing local execution
-#' 
-#' 
-#' @name ParallelizeBackendLocal-class
+#'
+#' Backend class implementing local execution.
+#'
+#' @name ParallelizeBackendLocal
+#' @rdname ParallelizeBackendLocal-class
 #' @aliases ParallelizeBackendLocal-class
 #' initialize,ParallelizeBackendLocal-method
 #' lapply_dispatchFinalize,ParallelizeBackendLocal-method
 #' @docType class
 #' @section Objects from the Class: Objects can be created by calls of the form
-#' \code{new("ParallelizeBackendLocal", config, ...)}. %% ~~ describe objects
-#' here ~~
+#' \code{new("ParallelizeBackendLocal", config, ...)}. The class can be configured with the following field in the \code{Lapply_config} argument of
+#' \code{parallelize_initialize}.
+#' \itemize{
+#'   \item freezerClass: defaults to \code{LapplyPersistentFreezer}
+#'   \item stateDir: directory to store results from computations. This location is passed to \code{LapplyPersistentFreezer}. If temporary behevior is desired it can be set to: \code{sprintf('\%s/tmp/remote', tempdir())}.
+#'    \item sourceFiles: a vector of files to be sourced prior to parallel execution
+#' }
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @seealso %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %% ~~or
-#' \code{\linkS4class{CLASSNAME}} for links to other classes ~~~
-#' \code{\linkS4class{ParallelizeBackend}},
-#' \code{\linkS4class{ParallelizeBackendSnow}},
-#' \code{\linkS4class{ParallelizeBackendOGSremote}}
+#' @seealso \code{\linkS4class{ParallelizeBackend}},
+#'   \code{\linkS4class{ParallelizeBackendSnow}},
+#'   \code{\linkS4class{ParallelizeBackendOGSremote}}
 #' @keywords classes
 #' @examples
 #' 
@@ -233,7 +235,7 @@ setClass('ParallelizeBackendLocal',
 );
 setMethod('initialize', 'ParallelizeBackendLocal', function(.Object, config, ...) {
 	.Object = callNextMethod(.Object, config = config, ...);
-	#Dir.create(config$path, recursive = T);
+	Dir.create(config$stateDir, recursive = T);
 	# 24.7.2013 -> use stateDir instead
 	.Object
 });
@@ -262,8 +264,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocal', function(self) {
 
 #' Class \code{"ParallelizeBackendSnow"}
 #' 
-#' %% ~~ A concise (1-5 lines) description of what the class is. ~~ Backend
-#' class for parallelization on SNOW clusters
+#' Backend class for parallelization on SNOW clusters
 #' 
 #' 
 #' @name ParallelizeBackendSnow-class

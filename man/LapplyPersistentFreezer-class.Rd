@@ -22,9 +22,7 @@ showClass("LapplyPersistentFreezer")
   Stefan Böhringer <r-packages@s-boehringer.org>
 }
 \seealso{
-  %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %%
-  ~~or \code{\linkS4class{CLASSNAME}} for links to other
-  classes ~~~ \code{\link{LapplyFreezer-class}}
+  \code{\link{LapplyFreezer-class}}
 }
 \keyword{classes}
 

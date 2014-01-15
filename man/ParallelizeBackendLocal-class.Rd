@@ -1,17 +1,26 @@
 \docType{class}
-\name{ParallelizeBackendLocal-class}
+\name{ParallelizeBackendLocal}
 \alias{initialize,ParallelizeBackendLocal-method}
 \alias{lapply_dispatchFinalize,ParallelizeBackendLocal-method}
+\alias{ParallelizeBackendLocal}
 \alias{ParallelizeBackendLocal-class}
 \title{Class \code{"ParallelizeBackendLocal"}}
 \description{
-  %% ~~ A concise (1-5 lines) description of what the class
-  is. ~~ Backend class implementing local execution
+  Backend class implementing local execution.
 }
 \section{Objects from the Class}{
   Objects can be created by calls of the form
-  \code{new("ParallelizeBackendLocal", config, ...)}. %% ~~
-  describe objects here ~~
+  \code{new("ParallelizeBackendLocal", config, ...)}. The
+  class can be configured with the following field in the
+  \code{Lapply_config} argument of
+  \code{parallelize_initialize}. \itemize{ \item
+  freezerClass: defaults to \code{LapplyPersistentFreezer}
+  \item stateDir: directory to store results from
+  computations. This location is passed to
+  \code{LapplyPersistentFreezer}. If temporary behevior is
+  desired it can be set to: \code{sprintf('\%s/tmp/remote',
+  tempdir())}.  \item sourceFiles: a vector of files to be
+  sourced prior to parallel execution }
 }
 \examples{
 showClass("ParallelizeBackendLocal")
@@ -20,9 +29,7 @@ showClass("ParallelizeBackendLocal")
   Stefan Böhringer <r-packages@s-boehringer.org>
 }
 \seealso{
-  %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %%
-  ~~or \code{\linkS4class{CLASSNAME}} for links to other
-  classes ~~~ \code{\linkS4class{ParallelizeBackend}},
+  \code{\linkS4class{ParallelizeBackend}},
   \code{\linkS4class{ParallelizeBackendSnow}},
   \code{\linkS4class{ParallelizeBackendOGSremote}}
 }

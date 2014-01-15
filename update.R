@@ -11,6 +11,7 @@ if (1) {
 if (1) {
 	require('roxygen2');
 	roxygenize('.', roclets = 'namespace');
+	roxygenize('.', roclets = 'collate');
 	roxygenize('.', roclets = 'rd');
 	#system('git commit -a -m "documentation update" ; git push');
 }

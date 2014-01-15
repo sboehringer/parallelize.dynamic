@@ -312,9 +312,7 @@ LapplyFreezerClass$accessors(names(LapplyFreezerClass$fields()));
 #' All reference classes extend and inherit methods from
 #' \code{"\linkS4class{envRefClass}"}.
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @seealso %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %% ~~or
-#' \code{\linkS4class{CLASSNAME}} for links to other classes ~~~
-#' \code{\link{LapplyFreezer-class}}
+#' @seealso \code{\link{LapplyFreezer-class}}
 #' @keywords classes
 #' @examples
 #' 
@@ -438,7 +436,6 @@ LapplyGroupingFreezerClass = setRefClass('LapplyGroupingFreezer',
 #' 
 #' Maintainer: Stefan Böhringer <r-packages@@s-boehringer.org>
 #' @seealso \code{\link{LapplyFreezer-class}}, \code{\link{LapplyState-class}}
-#' %% ~~or \code{\linkS4class{CLASSNAME}} for links to other classes ~~~
 #' @keywords classes
 #' @examples
 #' 
@@ -589,15 +586,21 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 
 # force_rerun instructs backends to ignore state-retaining files and re-run all computations
 
+#  parallelize_initialize
 #' Initialize dynamic parallelization of ensuing parallelize calls
 #' 
 #' Initialzes the parallelization process. The config argument describes all
 #' parameters for as many backends as are available. Remaining arguments select
 #' a configuration for the ensuing parallelization from that description.
 #' 
-#' \code{config} is a list with the following elements \code{ config =
-#' list(max_depth = 5, parallel_count = 24, offline = TRUE, backends =
-#' list(...)  ); }
+#' \code{Lapply_config} is a list with the following elements
+#'	\itemize{
+#'		\item max_depth: maximal depth to investigate during probing
+#'		\item parallel_count: provide default for the number of parallel jobs to generate, overwritten by
+#'			the function argument
+#'		\item offline: this option determines whether parallelize returns before performing the ramp-down. This is relevant for backends running on remote machines. See especially the \code{OGSremote} backend.
+#'		\item backends: a list that contains parameters specific for backends. The name of each element should be the name of a backend without the prefix \code{ParallelizeBackend}. Each of the elements is itself a list with the paramters. If several configurations are required for a certain backend - e.g. a batch-queuing system for which different queues are to be used - the name can be chosen arbitrarily. Then the element must contain an element with name \code{backend} that specifies the backend as above (example below). For the backend specific parameters see the class documentation of the backends.
+#'  }
 #' 
 #' @aliases parallelize_initialize Lapply_initialize
 #' @param Lapply_config A list describing possible configurations of the
@@ -619,8 +622,11 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #' \code{Lapply_config}.
 #' @return Value \code{NULL} is returned.
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @seealso \code{\link{parallelize}}, \code{\link{parallelize_call}}
-#' @keywords ~kwd1 ~kwd2
+#' @seealso \code{\link{parallelize}}, \code{\link{parallelize_call}}, 
+#'	 \code{\linkS4class{ParallelizeBackend}},
+#'	 \code{\linkS4class{ParallelizeBackendLocal}},
+#'   \code{\linkS4class{ParallelizeBackendSnow}},
+#'   \code{\linkS4class{ParallelizeBackendOGSremote}}
 #' @examples
 #' 
 #'   config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = list(
@@ -813,7 +819,9 @@ Lapply_config_default = list(
 	wait_interval = 30,
 	copy_environments = F
 );
-Lapply_backendConfig_default = list(doNotReschedule = F, doSaveResult = F);
+Lapply_backendConfig_default = list(
+	doNotReschedule = F, doSaveResult = F, freezerClass = 'LapplyPersistentFreezer'
+);
 
 Lapply_do = function(l, .f, ..., Lapply_config, Lapply_chunk = 1, envir__) {
 	#f_ = function(e, ...)do.call(.f, c(list(e), list(...)), envir = envir__);
@@ -1150,13 +1158,15 @@ parallelize_internal = function(call_, Lapply_local = rget('Lapply_local', defau
 #' returns asynchroneously
 #' @param .call Unevaluated call to be parallelized
 #' @return The value returned is the result of the computation of function .f
-#' @section Important details: \itemize{ \item The package creates files in a
+#' @section Important details: \itemize{
+#' \item The package creates files in a
 #' given folder. This folder is not temporary as it might be needed across R
 #' sessions. md5-fingerprints of textual representations of function calls are
 #' used to create subfolders therein per \code{parallelize} call. Conflicts can
 #' be avoided by choosing different function names per \code{parallelize} call
 #' for parallelizing the same function several times. For example: \code{f0 =
-#' f1 = function(){42}; parallelize(f0); parallelize(f1);} \item In view of
+#' f1 = function(){42}; parallelize(f0); parallelize(f1);}
+#' \item In view of
 #' efficiency the parallize.dynamic package does not copy the whole workspace
 #' to all parallel jobs. Instead, a hopefully minimal environment is set up for
 #' each parallel job. This includes all parameters passed to the function in
@@ -1165,7 +1175,8 @@ parallelize_internal = function(call_, Lapply_local = rget('Lapply_local', defau
 #' defintions are given in separate R-files or libraries which have to be
 #' specified in the \code{config} variable. These are then sourced/loaded into
 #' the parallel job. A way to dynamically create source files from function
-#' definitions is given in the Examples section. }
+#' definitions is given in the Examples section.
+#' }
 #' @author Stefan Böhringer, \email{r-packages@@s-boehringer.org}
 #' @seealso %% ~~objects to See Also as \code{\link{help}}, ~~~
 #' \code{\link{Apply}}, \code{\link{Sapply}}, \code{\link{Lapply}},
