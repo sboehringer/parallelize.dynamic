@@ -677,6 +677,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = Lapply_con
 		parallelize_setEnable(F);
 		return(NULL);
 	} else parallelize_setEnable(T);
+browser();
 	# <p> misc setup
 	Log.setLevel(firstDef(Lapply_config$logLevel, Log.level(), 4));
 	parallelize_setEnable(T);
@@ -1249,7 +1250,7 @@ parallelize_call = parallelize_call_backup = function(.call, ..., parallelize_wa
 #	<p> utility functions
 #
 
-#' Create a temporary file that contains the function definition of the
+#' @title Create a temporary file that contains the function definition of the
 #' argument.
 #' 
 #' Create a temporary file that contains the function definition of the
@@ -1260,10 +1261,9 @@ parallelize_call = parallelize_call_backup = function(.call, ..., parallelize_wa
 #' The temporary file is written to the temporary folder of the current R
 #' session.
 #' 
-#' @param fcts %% ~~Describe \code{fcts} here~~
+#' @param fcts function object the code of which is to be written to file
 #' @return Returns the path to the file written.
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @keywords ~kwd1 ~kwd2
 #' @examples
 #' 
 #'   # code to be parallelized

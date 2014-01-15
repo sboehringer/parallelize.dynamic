@@ -4,7 +4,7 @@
 
 # enable/disable parallelize.dynamic functionality during package use
 
-#' Turn on/off the parallelization mechanism
+#' @title Turn on/off the parallelization mechanism
 #' 
 #' This function changes the definition of
 #' Apply/Lapply/Sapply/parallelize/parallelize_call to turn the parallelization
@@ -15,12 +15,11 @@
 #' mechanism on or off. The global environment is modified by a call to this
 #' function.
 #' 
-#' @param state %% ~~Describe \code{state} here~~
+#' @param state TRUE or FALSE to enable or disable parallelization
 #' @return The returned value is undefined.
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
 #' @seealso \code{\link{parallelize}}, \code{\link{parallelize_call}},
-#' \code{\link{parallelize_initialize}}
-#' @keywords ~kwd1 ~kwd2
+#'  \code{\link{parallelize_initialize}}
 #' @examples
 #' 
 #' 	parallelize_setEnable(FALSE);
