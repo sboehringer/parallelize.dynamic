@@ -1,5 +1,5 @@
 export(Apply)
-exportClasses(LapplyExecutionState",
+exportClasses(LapplyExecutionState
 Class \code{"LapplyState"}
 
 This class is the base class for classes reflecting different stages of the

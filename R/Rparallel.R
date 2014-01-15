@@ -49,7 +49,7 @@ library('tools');
 #' @exportMethod restoreParallelizationState
 #' @exportMethod saveParallelizationState
 #' @exportMethod scheduleNextParallelization
-#' @exportClass LapplyExecutionState",
+#' @exportClass LapplyExecutionState
 
 #      "LapplyFreezer",
 #      "ParallelizeBackend",
