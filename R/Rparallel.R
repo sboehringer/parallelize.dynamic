@@ -585,7 +585,7 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #	<p> core parallize functions
 #
 
-if (!exists('parallelize_env')) parallelize_env <- new.env();
+#if (!exists('parallelize_env')) parallelize_env <- new.env();
 
 # force_rerun instructs backends to ignore state-retaining files and re-run all computations
 

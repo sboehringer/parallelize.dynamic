@@ -7,5 +7,6 @@
 	perlPath = system.file('Perl', package = pkgname);
 	Sys.setenv(PERL5LIB = sprintf('%s:%s', perlPath, Sys.getenv('PERL5LIB')));
 	Sys.setenv(PATH = sprintf('%s:%s', perlPath, Sys.getenv('PATH')));
+	parallelize_env <<- new.env();
 	#parallelize_setEnable(F);
 }
