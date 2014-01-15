@@ -54,12 +54,14 @@ library('tools');
 #' @exportClass ParallelizeBackend
 #' @exportClass ParallelizeBackendLocal
 #' @exportClass ParallelizeBackendOGSremote
-#' @exportClass 'ParallelizeBackendSnow'
+#' @exportClass ParallelizeBackendSnow
 
 #
 #	<p> Lapply state reference classes
 #
 
+#' @title Class \code{"LapplyState"}
+#' 
 #' This class is the base class for classes reflecting different stages of the
 #' parallelization process: probing and running.
 #' 

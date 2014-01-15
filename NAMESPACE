@@ -4,9 +4,7 @@ exportClasses(LapplyFreezer)
 exportClasses(ParallelizeBackend)
 exportClasses(ParallelizeBackendLocal)
 exportClasses(ParallelizeBackendOGSremote)
-exportClasses('ParallelizeBackendSnow'
-This class is the base class for classes reflecting different stages of the
-parallelization process: probing and running.)
+exportClasses(ParallelizeBackendSnow)
 export(Lapply)
 export(Log)
 export(Log.level)
