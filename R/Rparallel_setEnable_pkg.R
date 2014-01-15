@@ -18,8 +18,7 @@
 #' @param state TRUE or FALSE to enable or disable parallelization
 #' @return The returned value is undefined.
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @seealso \code{\link{parallelize}}, \code{\link{parallelize_call}},
-#'  \code{\link{parallelize_initialize}}
+#' @seealso \code{\link{parallelize}}, \code{\link{parallelize_call}}, \code{\link{parallelize_initialize}}
 #' @examples
 #' 
 #' 	parallelize_setEnable(FALSE);
