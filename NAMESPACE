@@ -1,5 +1,10 @@
 export(Apply)
-exportClasses(LapplyExecutionState
+exportClasses(LapplyExecutionState)
+exportClasses(LapplyFreezer)
+exportClasses(ParallelizeBackend)
+exportClasses(ParallelizeBackendLocal)
+exportClasses(ParallelizeBackendOGSremote)
+exportClasses(ParallelizeBackendSnow
 Class \code{"LapplyState"}
 
 This class is the base class for classes reflecting different stages of the

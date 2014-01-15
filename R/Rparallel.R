@@ -50,13 +50,11 @@ library('tools');
 #' @exportMethod saveParallelizationState
 #' @exportMethod scheduleNextParallelization
 #' @exportClass LapplyExecutionState
-
-#      "LapplyFreezer",
-#      "ParallelizeBackend",
-#      "ParallelizeBackendLocal",
-#      "ParallelizeBackendOGSremote",
-#      "ParallelizeBackendSnow" 
-# )
+#' @exportClass LapplyFreezer
+#' @exportClass ParallelizeBackend
+#' @exportClass ParallelizeBackendLocal
+#' @exportClass ParallelizeBackendOGSremote
+#' @exportClass ParallelizeBackendSnow
 
 #
 #	<p> Lapply state reference classes
