@@ -677,7 +677,6 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = Lapply_con
 		parallelize_setEnable(F);
 		return(NULL);
 	} else parallelize_setEnable(T);
-browser();
 	# <p> misc setup
 	Log.setLevel(firstDef(Lapply_config$logLevel, Log.level(), 4));
 	parallelize_setEnable(T);

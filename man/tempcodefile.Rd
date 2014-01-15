@@ -1,22 +1,33 @@
 \name{tempcodefile}
 \alias{tempcodefile}
 \title{Create a temporary file that contains the function definition of the
-argument.}
+argument.
+
+Create a temporary file that contains the function definition of the
+argument so that this file can be sourced to re-instantiate the function.
+
+Create a temporary file that contains the function definition of the
+argument so that this file can be sourced to re-instantiate the function.
+The temporary file is written to the temporary folder of the current R
+session.}
 \usage{
   tempcodefile(fcts)
 }
 \arguments{
-  \item{fcts}{%% ~~Describe \code{fcts} here~~}
+  \item{fcts}{function object the code of which is to be
+  written to file}
 }
 \value{
   Returns the path to the file written.
 }
 \description{
   Create a temporary file that contains the function
+  definition of the argument.
+
+  Create a temporary file that contains the function
   definition of the argument so that this file can be
   sourced to re-instantiate the function.
-}
-\details{
+
   Create a temporary file that contains the function
   definition of the argument so that this file can be
   sourced to re-instantiate the function. The temporary
@@ -41,6 +52,4 @@ argument.}
 \author{
   Stefan Böhringer <r-packages@s-boehringer.org>
 }
-\keyword{~kwd1}
-\keyword{~kwd2}
 

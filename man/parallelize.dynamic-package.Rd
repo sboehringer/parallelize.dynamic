@@ -2,18 +2,24 @@
 \name{parallelize.dynamic-package}
 \alias{parallelize.dynamic}
 \alias{parallelize.dynamic-package}
-\title{Automate parallelization of function calls by means of dynamic code analysis}
+\title{Class \code{"LapplyState"}
+
+This class is the base class for classes reflecting different stages of the
+parallelization process: probing and running.}
 \usage{
   LapplyStateClass(...)
 }
 \description{
+  Automate parallelization of function calls by means of
+  dynamic code analysis
+}
+\details{
   Passing a given function name or a call to the
   parallelize/parallelize_call functions analyses and
   executes the code, if possible in parallel. Parallel code
   execution can be performed locally or on remote batch
   queuing systems.
-}
-\details{
+
   \tabular{ll}{ Package: \tab parallelize.dynamic\cr Type:
   \tab Package\cr Version: \tab 0.9\cr Date: \tab
   2012-12-12\cr License: \tab LGPL\cr Depends: \tab
@@ -58,23 +64,6 @@ showClass("LapplyState")
   \code{\linkS4class{CLASSNAME}} for links to other classes
   ~~~
 }
-\keyword{and}
-\keyword{base}
-\keyword{class}
-\keyword{Class}
 \keyword{classes}
-\keyword{\code{"LapplyState"}}
-\keyword{different}
-\keyword{for}
-\keyword{is}
-\keyword{of}
 \keyword{package}
-\keyword{parallelization}
-\keyword{probing}
-\keyword{process:}
-\keyword{reflecting}
-\keyword{running.}
-\keyword{stages}
-\keyword{the}
-\keyword{This}
 

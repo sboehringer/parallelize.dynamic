@@ -1135,6 +1135,7 @@ pop = function(v)(v[-length(v)])
 #	<par> sets and permutations
 #
 
+#' @title Computes order so that inverseOrder after order is the identity
 #'
 #' @examples
 #' v = runif(1e2);
@@ -1146,10 +1147,11 @@ inverseOrder = inversePermutation = function(p) {
 # 	i
 	which.indeces(1:length(p), order(p))
 }
-#' Calculates inverseOrder, assuming that the argument is already an \code{order}-vector.
+
+#' @title Calculates inverseOrder, assuming that the argument is already an \code{order}-vector.
 inverseOrder_fromOrder = function(p)which.indeces(1:length(p), p)
 
-#' Return vector that reorders v to equal reference.
+#' @title Return vector that reorders v to equal reference.
 #'
 #' Assuming that two arguments are permutaions of each other, return a vector of indeces such that \code{all(reference == v[order_align(reference, v)]) == T} for all vectors \code{reference, v}.
 #'

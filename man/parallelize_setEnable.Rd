@@ -1,21 +1,32 @@
 \name{parallelize_setEnable}
 \alias{parallelize_setEnable}
-\title{Turn on/off the parallelization mechanism}
+\title{Turn on/off the parallelization mechanism
+
+This function changes the definition of
+Apply/Lapply/Sapply/parallelize/parallelize_call to turn the parallelization
+mechanism on or off.
+
+This function changes the definition of
+Apply/Lapply/Sapply/parallelize/parallelize_call to turn the parallelization
+mechanism on or off. The global environment is modified by a call to this
+function.}
 \usage{
   parallelize_setEnable(state)
 }
 \arguments{
-  \item{state}{%% ~~Describe \code{state} here~~}
+  \item{state}{TRUE or FALSE to enable or disable
+  parallelization}
 }
 \value{
   The returned value is undefined.
 }
 \description{
+  Turn on/off the parallelization mechanism
+
   This function changes the definition of
   Apply/Lapply/Sapply/parallelize/parallelize_call to turn
   the parallelization mechanism on or off.
-}
-\details{
+
   This function changes the definition of
   Apply/Lapply/Sapply/parallelize/parallelize_call to turn
   the parallelization mechanism on or off. The global
@@ -35,6 +46,4 @@ parallelize_setEnable(FALSE);
   \code{\link{parallelize_call}},
   \code{\link{parallelize_initialize}}
 }
-\keyword{~kwd1}
-\keyword{~kwd2}
 
