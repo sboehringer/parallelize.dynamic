@@ -10,6 +10,6 @@ if (1) {
 
 if (1) {
 	require('roxygen2');
-	roxygenize('.');
+	roxygenize('.', roclets = 'namespace');
 	system('git commit -a -m "documentation update" ; git push');
 }
