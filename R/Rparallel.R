@@ -60,8 +60,6 @@ library('tools');
 #	<p> Lapply state reference classes
 #
 
-#' Class \code{"LapplyState"}
-#' 
 #' This class is the base class for classes reflecting different stages of the
 #' parallelization process: probing and running.
 #' 
