@@ -83,7 +83,7 @@ config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = lis
     ),
     `ogs-3` = list(
       backend = 'OGSremote',
-      remote = 'user\\
+      remote = 'user\\\\
 }
 \author{
   Stefan Böhringer <r-packages@s-boehringer.org>
