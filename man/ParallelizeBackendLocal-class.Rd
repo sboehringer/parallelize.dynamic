@@ -10,14 +10,17 @@
 }
 \section{Objects from the Class}{
   Objects can be created by calls of the form
-  \code{new("ParallelizeBackendLocal", config, ...)}. The
-  class can be configured with the following field in the
-  \code{Lapply_config} argument of
+  \code{new("ParallelizeBackendLocal", config, ...)}.
+  During normal operation you do not have to create objects
+  of this class yourself. Instead,
+  \code{parallelize_initialize} will create such instances
+  for you. The class can be configured with the following
+  field in the \code{Lapply_config} argument of
   \code{parallelize_initialize}. \itemize{ \item
   freezerClass: defaults to \code{LapplyPersistentFreezer}
   \item stateDir: directory to store results from
   computations. This location is passed to
-  \code{LapplyPersistentFreezer}. If temporary behevior is
+  \code{LapplyPersistentFreezer}. If temporary behavior is
   desired it can be set to: \code{sprintf('\%s/tmp/remote',
   tempdir())}.  \item sourceFiles: a vector of files to be
   sourced prior to parallel execution }

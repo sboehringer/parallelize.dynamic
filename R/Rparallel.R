@@ -631,7 +631,7 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #' 
 #'   config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = list(
 #'     snow = list(
-#'       localNodes = 1, splitN = 1, sourceFiles = c('RgenericAll.R', 'Rgenetics.R', 'RlabParallel.R')
+#'       localNodes = 1, sourceFiles = c('RgenericAll.R', 'Rgenetics.R', 'RlabParallel.R')
 #'     ),
 #'     local = list(
 #'       path = sprintf('%s/tmp/parallelize', tempdir())

@@ -212,11 +212,11 @@ setMethod('getResult', 'ParallelizeBackend', function(self) {
 #' lapply_dispatchFinalize,ParallelizeBackendLocal-method
 #' @docType class
 #' @section Objects from the Class: Objects can be created by calls of the form
-#' \code{new("ParallelizeBackendLocal", config, ...)}. The class can be configured with the following field in the \code{Lapply_config} argument of
-#' \code{parallelize_initialize}.
+#' \code{new("ParallelizeBackendLocal", config, ...)}.
+#' During normal operation you do not have to create objects of this class yourself. Instead, \code{parallelize_initialize} will create such instances for you. The class can be configured with the following field in the \code{Lapply_config} argument of \code{parallelize_initialize}.
 #' \itemize{
 #'   \item freezerClass: defaults to \code{LapplyPersistentFreezer}
-#'   \item stateDir: directory to store results from computations. This location is passed to \code{LapplyPersistentFreezer}. If temporary behevior is desired it can be set to: \code{sprintf('\%s/tmp/remote', tempdir())}.
+#'   \item stateDir: directory to store results from computations. This location is passed to \code{LapplyPersistentFreezer}. If temporary behavior is desired it can be set to: \code{sprintf('\%s/tmp/remote', tempdir())}.
 #'    \item sourceFiles: a vector of files to be sourced prior to parallel execution
 #' }
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
@@ -268,16 +268,26 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocal', function(self) {
 #' 
 #' 
 #' @name ParallelizeBackendSnow-class
+#' @rdname ParallelizeBackendSnow-class
 #' @aliases ParallelizeBackendSnow-class
 #' initialize,ParallelizeBackendSnow-method
 #' lapply_dispatchFinalize,ParallelizeBackendSnow-method
 #' @docType class
+#'
 #' @section Objects from the Class: Objects can be created by calls of the form
-#' \code{new("ParallelizeBackendSnow", config, ...)}. %% ~~ describe objects
-#' here ~~
+#'	\code{new("ParallelizeBackendSnow", config, ...)}.
+#' During normal operation you do not have to create objects of this class yourself. Instead, \code{parallelize_initialize} will create such instances for you. The class can be configured with the following field in the \code{Lapply_config} argument of \code{parallelize_initialize}.
+#' \itemize{
+#'   \item freezerClass: defaults to \code{LapplyPersistentFreezer}
+#'   \item stateDir: directory to store results from computations. This location is passed to \code{LapplyPersistentFreezer}. If temporary behavior is desired it can be set to: \code{sprintf('\%s/tmp/remote', tempdir())}.
+#'    \item sourceFiles: a vector of files to be sourced prior to parallel execution
+#'    \item libraries: a vector of package names to be loaded prior to parallel execution
+#'    \item localNodes: an integer number of how many parallel snow jobs are to be created. This should not be larger than the number of (logical) cores available as a general rule. A snow cluster is created using the \code{makePSOCKcluster}
+#' }
+#' You should be able to run a so-called \code{PSOCKS} cluster to use this package. See the \code{parallel} package for details (see also).
+#'
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @seealso %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %% ~~or
-#' \code{\linkS4class{CLASSNAME}} for links to other classes ~~~
+#' @seealso \code{\link{makePSOCKcluster}},
 #' \code{\linkS4class{ParallelizeBackend}},
 #' \code{\linkS4class{ParallelizeBackendLocal}},
 #' \code{\linkS4class{ParallelizeBackendSnow}},
@@ -287,6 +297,11 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocal', function(self) {
 #' 
 #' showClass("ParallelizeBackendSnow")
 #' 
+#' Lapply_config = list(parallel_count = 24, backends = list(
+#'     snow = list(
+#'       localNodes = 8, sourceFiles = c('myScript.R'), libraries = c('boot')
+#'     )
+#' );
 setClass('ParallelizeBackendSnow',
 	contains = 'ParallelizeBackend',
 	representation = list(),
@@ -639,8 +654,22 @@ setMethod('pollParallelization', 'ParallelizeBackendOGS', function(self, options
 #' performParallelizationStep,ParallelizeBackendOGSremote-method
 #' pollParallelization,ParallelizeBackendOGSremote-method
 #' @docType class
-#' @section Objects from the Class: Objects can be created by calls of the form
-#' \code{}. %% ~~ describe objects here ~~
+#'
+#' @section Objects from the Class:
+#' Objects can be created by calls of the form
+#'	\code{new("ParallelizeBackendOGSremote", config, ...)}.
+#' During normal operation you do not have to create objects of this class yourself. Instead, \code{parallelize_initialize} will create such instances for you. The class can be configured with the following field in the \code{Lapply_config} argument of \code{parallelize_initialize}.
+#' \itemize{
+#'   \item freezerClass: defaults to \code{LapplyPersistentFreezer}. It is recommended to use \code{LapplyGroupingFreezer} for this backend as it is the most efficient freezer. Currently, \code{LapplyGroupingFreezer} is only supported for this backend.
+#'   \item stateDir: directory to store results from computations. This location is passed to \code{LapplyPersistentFreezer}. If temporary behavior is desired it can be set to: \code{sprintf('\%s/tmp/remote', tempdir())}.
+#'    \item sourceFiles: a vector of files to be sourced prior to parallel execution
+#'    \item libraries: a vector of package names to be loaded prior to parallel execution
+#'    \item remote: a scp path to a folder on the server that can be used to store temporary files, e.g. 'user@@localhost:tmp/remote/test'. A unique subfolder per computation is created within this folder to store files (unique tempfolder).
+#'     \item qsubOptions: extra options that are passed to the \code{qsub.pl} utility included in the package that is used to submit jobs. Execute \code{./qsub.pl --help} in the \code{inst/Perl} folder of the package to see all options and examples. Important options include \code{--queue} to specify the queue, \code{--memory} to set an upper bound for the needed memory (.e.g. \code{--memory 4G}) and \code{--logLevel} to set verbosity of output (level 5 produces detailed output).
+#' }
+#' To use this backend you have to have access password-less ssh access to a linux server running the Open Grid Scheduler (OGS) or the Sun Grid engine (SGE). You can install OGS locally (see \link{http://gridscheduler.sourceforge.net/CompileGridEngineSource.html}). \code{ssh} and \code{scp} have to be installed on the local machine.
+#' Job output (stdout, stderr) as well as \code{qsub.pl} output is stored in subfolder of the unique tempfolder starting with 'qsubOutput'.
+#'
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
 #' @seealso %% ~~objects to See Also as \code{\link{~~fun~~}}, ~~~ %% ~~or
 #' \code{\linkS4class{CLASSNAME}} for links to other classes ~~~
