@@ -10,3 +10,8 @@ This github version of the package can be installed using package devtools.
 require('devtools');
 install_github('parallelize.dynamic', 'sboehringer');
 ```
+
+The latest stable, CRAN-accepted version can be locally installed with:
+```r
+install.packages('parallelize.dynamic');
+```
