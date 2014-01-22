@@ -1,0 +1,13 @@
+Version 1.0
+-------------
+- bug fixes
+- copy_environemnt options copies unbound variables
+
+Version 0.9-1
+-------------
+- bug fixes
+- Grouping freezer, sometimes 1e3 times more efficient than PersistentFreezer
+
+Version 0.9
+-----------
+- initial release
