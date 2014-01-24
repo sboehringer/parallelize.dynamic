@@ -638,7 +638,6 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #'     ),
 #'     `ogs-1` = list(
 #'       backend = 'OGS',
-#'       freezerClass = 'LapplyPersistentFreezer',
 #'       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
 #'       stateDir = sprintf('%s/tmp/remote', tempdir()),
 #'       qsubOptions = sprintf('--queue all.q --logLevel %d', 2),
@@ -646,7 +645,6 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #'     ),
 #'     `ogs-2` = list(
 #'       backend = 'OGS',
-#'       freezerClass = 'LapplyPersistentFreezer',
 #'       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
 #'       stateDir = sprintf('%s/tmp/remote', tempdir()),
 #'       qsubOptions = sprintf('--queue subordinate.q --logLevel %d', 2),
@@ -655,7 +653,6 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #'     `ogs-3` = list(
 #'       backend = 'OGSremote',
 #'       remote = 'user@@localhost:tmp/remote/test',
-#'       freezerClass = 'LapplyPersistentFreezer',
 #'       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
 #'       stateDir = sprintf('%s/tmp/remote/test_local', tempdir()),
 #'       qsubOptions = sprintf('--queue all.q --logLevel %d', 2),
@@ -688,8 +685,10 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = Lapply_con
 	parallelize_setEnable(T);
 	# <p> config
 	sourceFiles = c(Lapply_config$sourceFiles, Lapply_config$backends[[backend]]$sourceFiles, sourceFiles);
+	backendClass = firstDef(Lapply_config$backends[[backend]]$backend, backend);
 	backendConfig = merge.lists(
 		Lapply_backendConfig_default,
+		Lapply_backendConfigSpecific_default[[backendClass]],	# <i> --> class method
 		Lapply_config$backends[[backend]],
 		list(force_rerun = force_rerun, sourceFiles = sourceFiles, libraries = libraries,
 			copy_environments = copy_environments)
@@ -704,9 +703,9 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = Lapply_con
 	Lapply_setConfig(Lapply_config);
 	# <p> backend
 	if (exists('Lapply_backend__',  envir = parallelize_env)) rm('Lapply_backend__', envir = parallelize_env);
-	freezerClass = firstDef(backendConfig$freezerClass, freezerClass);
 	# <p> iteration states
 	Lapply_initializeState(stateClass, ...);
+	freezerClass = firstDef(backendConfig$freezerClass, freezerClass);
 	assign('Lapply_executionState__', LapplyExecutionStateClass$new(
 		freezerClass = freezerClass, copy_environments = Lapply_config$copy_environments),
 		envir = parallelize_env);
@@ -820,7 +819,13 @@ Lapply_config_default = list(
 	copy_environments = F
 );
 Lapply_backendConfig_default = list(
-	doNotReschedule = F, doSaveResult = F, freezerClass = 'LapplyPersistentFreezer'
+	doNotReschedule = F, doSaveResult = F
+);
+Lapply_backendConfigSpecific_default = list(
+	local = list(freezerClass = 'LapplyFreezer'),
+	snow = list(freezerClass = 'LapplyFreezer'),
+	OGS = list(freezerClass = 'LapplyGroupingFreezer'),
+	OGSremote = list(freezerClass = 'LapplyGroupingFreezer')
 );
 
 Lapply_do = function(l, .f, ..., Lapply_config, Lapply_chunk = 1, envir__) {

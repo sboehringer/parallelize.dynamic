@@ -2,6 +2,7 @@ Version 1.0
 -------------
 - bug fixes
 - copy_environemnt options copies unbound variables
+- project source code now hosted on github: https://github.com/sboehringer/parallelize.dynamic
 
 Version 0.9-1
 -------------
