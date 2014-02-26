@@ -40,11 +40,13 @@ to.list = function(..., .remove.factors = T){
 # pretty much force to vector
 #avu = function(v)as.vector(unlist(v))
 avu = function(v, recursive = T, toNA = T) {
-	transform = if (toNA) function(i){if (nls[[i]]) NA else avu(v[[i]])} else function(i)avu(v[[i]]);
+	transform = if (toNA)
+		function(i, condition){if (condition[[i]]) NA else avu(v[[i]])} else function(i)avu(v[[i]]);
+
 	r = if (is.list(v)) {
 		nls = sapply(v, is.null);	# detects nulls
 		# unlist removes NULL values -> NA
-		unlist(sapply(1:length(v), transform));
+		unlist(sapply(1:length(v), transform, condition = nls));
 	} else as.vector(v);
 	if (!length(r)) return(NULL);
 	r
@@ -179,6 +181,56 @@ fetchRegexpr = function(re, str, ..., ret.all = F, globally = T, captures = F, c
 	ret = if (returnMatchPositions) list(match = l, positions = r) else l;
 	ret
 }
+# improved multistring version
+FetchRegexpr = function(re, str, ..., ret.all = F, globally = T, captures = F, captureN = c(),
+	capturesAll = F, maxCaptures = 9, returnMatchPositions = F) {
+	if (length(re) == 0) return(c());
+	r = if (globally)
+		gregexpr(re, str, perl = T, ...) else
+		list(regexpr(re, str, perl = T, ...));
+	if (all(unlist(r) < 0)) return(NULL);
+	l = sapply(seq_along(r),
+		function(j) {
+			r0 = r[[j]];
+			sapply(1:length(r0),
+				function(i)substr(str[j], r0[i], r0[i] + attr(r0, "match.length")[i] - 1))
+	});
+	if (captures) {
+		l = sapply(l, function(e)gsub(re, '\\1', e, perl = T, fixed = F));
+		print(l);
+	} else if (length(captureN) > 0) {
+		l = lapply(l, function(e) {
+			r = sapply(1:length(captureN), function(i) {
+				list(gsub(re, sprintf('\\%d', i), e, perl = T, fixed = F))
+			});
+			names(r) = captureN;
+			r
+		});
+	} else if (capturesAll) {
+		l = lapply(l, function(e) {
+			cs = c();	# captures
+			# <!> hack to remove zero-width assertions (no nested grouping!)
+			#re = gsub('(\\(\\?<=.*?\\))|(\\(\\?=.*?\\))', '', re, perl = T, fixed = F);
+			for (i in 1:maxCaptures) {
+				n = gsub(re, sprintf('\\%d', i), e, perl = T, fixed = F);
+				cs = c(cs, n);
+			}
+			cs
+		});
+
+		# trim list
+		#maxEls = maxCaptures - min(c(maxCaptures + 1, sapply(l, function(e)Which.max(rev(e != ''))))
+		#	, na.rm = T) + 1;
+		maxEls = max(c(sapply(l, function(e)Which.max(e != '', default = 1)), 1));
+		l = lapply(l, function(e)(if (maxEls > 0) e[1:maxEls] else NULL));
+	}
+	if (!ret.all) l = l[l != ""];
+	ret = if (returnMatchPositions) list(match = l, positions = r) else l;
+	ret
+}
+
+regex = Vectorize(fetchRegexpr, 'str', SIMPLIFY = T, USE.NAMES = T);
+
 
 splitString = function(re, str, ...) {
 	r = gregexpr(re, str, perl = T, ...)[[1]];
@@ -270,7 +322,7 @@ Substr = function(s, start, length, replacement) {
 #'
 #' @examples
 #' Sprintf('These are N %{N} characters.', list(N = 10));
-Sprintf = sprintd = function(fmt, ...) {
+Sprintf = sprintd = function(fmt, ..., sprintf_cartesian = FALSE) {
 	values = list(...);
 	dict = extraValues = list();
 	for (i in seq_along(values)) {
@@ -280,6 +332,8 @@ Sprintf = sprintd = function(fmt, ...) {
 			dict = merge.lists(dict, values[i]) else
 			extraValues = c(extraValues, values[i]);
 	}
+	allValues = c(extraValues, dict);
+	dictDf = if (!sprintf_cartesian) Df(allValues) else merge.multi.list(allValues);
 
 	re = '(?x)(?:
 		(?:^|[^%]|(?:%%)+)\\K
@@ -288,16 +342,25 @@ Sprintf = sprintd = function(fmt, ...) {
 		((?:[-]?[*\\d]*[.][*\\d]*)?(?:[sdfegG]|))(?=[^%sdfegG]|$)
 	)';
 	r = fetchRegexpr(re, fmt, capturesAll = T, returnMatchPositions = T);
+	types = sapply(r$match, function(m)ifelse(m[2] == '', 's', m[2]));
 	fmts = sapply(r$match, function(m)sprintf('%%%s', ifelse(m[2] == '', 's', m[2])));
 	fmt1 = Substr(fmt, r$positions, attr(r$positions, 'match.length'), fmts);
 
 	keys = sapply(r$match, function(i)i[1]);
 	nonKeysI = cumsum(keys == '');	# indeces of values not passed by name
-	
-	sprintfValues = lapply(seq_along(keys), function(i)
-		ifelse(keys[i] == '', extraValues[[nonKeysI[i]]],
-			firstDef(dict[[keys[i]]], rget(keys[i], default = '__no value__'), pos = -2)));
-	s = do.call(sprintf, c(list(fmt = fmt1), sprintfValues));
+	# fill names of anonymous formats
+	keys[keys == ''] = names(dictDf)[Seq(1, sum(nonKeysI != 0))];
+	# due to repeat rules of R vectors might have been converted to factors
+	dictDf = Df_(dictDf, as_character = keys[types == 's']);
+	s = sapply(1:nrow(dictDf), function(i) {
+		valueDict = as.list(dictDf[i, , drop = F]);
+# 		sprintfValues = lapply(seq_along(keys), function(i)
+# 			ifelse(keys[i] == '', extraValues[[nonKeysI[i]]],
+# 				firstDef(valueDict[[keys[i]]], rget(keys[i], default = '__no value__'), pos = -2)));
+		sprintfValues = lapply(seq_along(keys), function(i)
+			firstDef(valueDict[[keys[i]]], rget(keys[i], default = '__no value__'), pos = -2));
+		do.call(sprintf, c(list(fmt = fmt1), sprintfValues))
+	});
 	s
 }
 
@@ -601,6 +664,8 @@ list.kprw = function(l, keys, unlist.pats, template, null2na, carryNames) {
 			r = if (is.null(l[[key]])) { if (null2na) NA else NULL } else l[[key]];
 			if (length(keys) > 1)
 				list.kprw(r, keys[-1], unlist.pats[-1], template, null2na, carryNames) else r;
+		} else if (class(l) %in% c('character')) {
+			l[names(l) %in% key];
 		} else if (class(l) %in% c('data.frame', 'matrix')) {
 			l[, key]
 		} else return(template)
@@ -1003,10 +1068,16 @@ which.indeces = function(lsee, lsed, regex = F, ret.na = F, merge = T, match.mul
 				any(sapply(lsee, function(see)(length(fetchRegexpr(see, e, ...)) > 0)))
 		)))
 	} else if (merge) {
-		d0 = merge(data.frame(d = lsed, ix = 1:length(lsed)),
+		d0 = merge(
+			data.frame(d = lsed, ix = 1:length(lsed)),
 			data.frame(d = lsee, iy = 1:length(lsee)), all.y = T);
+		d0 = d0[order(d0$iy), ];
 		idcs = if (match.multi) { d0$ix[unlist(sapply(lsee, function(e)which(d0$d == e)))]
-		} else d0$ix[unlist(sapply(lsee, function(e)which(d0$d == e)[1]))];
+			} else {
+				d0$ix[pop(which(c(d0$iy, 0) - c(0, d0$iy) != 0))];
+			}
+		# less efficient version
+#		} else d0$ix[unlist(sapply(lsee, function(e)which(d0$d == e)[1]))];
 #		} else d0$ix[order(d0$iy)]
 		if (!ret.na) idcs = idcs[!is.na(idcs)];
 		idcs
@@ -1087,9 +1158,11 @@ data.frame.types = function(df, numeric = c(), character = c(), factor = c(), in
 # as of 22.7.2013 <!>: min_ applied before names/headerMap
 # as of 19.12.2013 <!>: as.numeric -> as_numeric
 #' Create data frames with more options than \code{data.frame}
-Df_ = function(df0, headerMap = NULL, names = NULL, min_ = NULL, as_numeric = NULL, row.names = NA,
-	valueMap = NULL) {
-	r = as.data.frame(df0);
+Df_ = function(df0, headerMap = NULL, names = NULL, min_ = NULL,
+	as_numeric = NULL, as_character = NULL,
+	row.names = NA, valueMap = NULL, Df_as_is = TRUE) {
+	#r = as.data.frame(df0);
+	r = data.frame(df0, stringsAsFactors = !Df_as_is);
 	if (!is.null(min_)) r = r[, -which.indeces(min_, names(r))];
 	if (!is.null(names)) {
 		if (class(names) == 'character') names(r)[1:length(names)] = names;
@@ -1105,13 +1178,22 @@ Df_ = function(df0, headerMap = NULL, names = NULL, min_ = NULL, as_numeric = NU
 		dfn = apply(r[, as_numeric, drop = F], 2, function(col)as.numeric(avu(col)));
 		r[, as_numeric] = dfn;
 	}
+	if (!is.null(as_character)) {
+		dfn = apply(r[, as_character, drop = F], 2, function(col)as.character(avu(col)));
+		r[, as_character] = dfn;
+	}
 	if (!all(is.na(row.names))) row.names(r) = row.names;
 	r
 }
 
-Df = function(..., headerMap = NULL, names = NULL, min_ = NULL, row.names = NA) {
+Df = function(..., headerMap = NULL, names = NULL, min_ = NULL, row.names = NA, Df_as_is = TRUE,
+	as_numeric = NULL, as_character = NULL) {
 	r = data.frame(...);
-	Df_(r, headerMap = headerMap, names = names, min_ = min_, row.names = row.names);
+	Df_(r, headerMap = headerMap, names = names, min_ = min_, row.names = row.names,
+		as_numeric = as_numeric,
+		as_character = as_character,
+		Df_as_is = Df_as_is
+	);
 }
 
 List_ = .List = function(l, min_ = NULL, rm.null = F) {

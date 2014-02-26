@@ -63,10 +63,12 @@ path.absolute = absolutePath = function(path, home.dir = T) {
 		path = sprintf("%s/%s", Sys.getenv('HOME'), substr(path, 3, nchar(path)));
 	if (nchar(path) > 0 && substr(path, 1, 1) == "/") path else sprintf("%s/%s", getwd(), path)
 }
-tempFileName = function(prefix, extension = NULL, digits = 6, retries = 5, inRtmp = F) {
+tempFileName = function(prefix, extension = NULL, digits = 6, retries = 5, inRtmp = F,
+	createDir = F, home.dir = T) {
 	ext = if (is.null(extension)) '' else sprintf('.%s', extension);
 	path = NULL;
 	if (inRtmp) prefix = sprintf('%s/%s', tempdir(), prefix);
+	if (home.dir) prefix = path.absolute(prefix, home.dir = home.dir);
 	for (i in 1:retries) {
 		path = sprintf('%s%0*d%s', prefix, digits, floor(runif(1) * 10^digits), ext);
 		if (!File.exists(path)) break;
@@ -74,7 +76,9 @@ tempFileName = function(prefix, extension = NULL, digits = 6, retries = 5, inRtm
 	if (File.exists(path))
 		stop(sprintf('Could not create tempfile with prefix "%s" after %d retries', prefix, retries));
 	# potential race condition <N>
-	writeFile(path, '', mkpath = T, ssh = T);
+	if (createDir)
+		Dir.create(path, recursive = T) else
+		writeFile(path, '', mkpath = T, ssh = T);
 	# # old implementation
 	#path = tempfile(prefix);
 	#cat('', file = path);	# touch path to lock name
@@ -821,7 +825,8 @@ setMethod('thaw', 'ParallelizeDelayedLoad', function(self, which = NA) {
 });
 
 RNGuniqueSeed = function(tag) {
-	md5 = md5sumString(join(c(.Random.seed, tag), ''));
+	if (exists('.Random.seed')) tag = c(.Random.seed, tag);
+	md5 = md5sumString(join(tag, ''));
 	r = list(
 		kind = RNGkind(),
 		seed = hex2int(substr(md5, 1, 8))
