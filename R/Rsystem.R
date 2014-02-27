@@ -58,7 +58,8 @@ splitPath = function(path, removeQualifier = T, ssh = F, skipExists = F) {
 	);
 	ret
 }
-path.absolute = absolutePath = function(path, home.dir = T) {
+path.absolute = absolutePath = function(path, home.dir = T, ssh = T) {
+	path = splitPath(path, ssh = ssh)$path;
 	if (home.dir && nchar(path) >= 2 && substr(path, 1, 2) == "~/")
 		path = sprintf("%s/%s", Sys.getenv('HOME'), substr(path, 3, nchar(path)));
 	if (nchar(path) > 0 && substr(path, 1, 1) == "/") path else sprintf("%s/%s", getwd(), path)
@@ -422,7 +423,7 @@ qs = function(s) {
 			tempfile = function(prefix, ...) {
 				Log(sprintf('tempfile ssh:%s', prefix), 1);
 				r = splitPath(tempFileName(sprintf('%s:%s', ssh_host, prefix), ...), ssh = T)$path;
-				Log(sprintf('tempfile sshr:%s', r), 1);
+				Log(sprintf('tempfile ssh-remote:%s', r), 1);
 				r
 			},
 			readFile = function(path, ...)readFile(sprintf('%s:%s', ssh_host, path), ..., ssh = T)
