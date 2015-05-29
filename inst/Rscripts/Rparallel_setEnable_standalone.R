@@ -5,6 +5,7 @@
 # enable/disable parallelize.dynamic functionality during standalone use
 
 parallelize_setEnable = function(state) {
+	if (!exists('parallelize_env', envir = .GlobalEnv)) assign('parallelize_env', new.env(), envir = .GlobalEnv);
 	if (!state) {
 		assign('Lapply', lapply, envir = .GlobalEnv);
 		assign('Sapply', sapply, envir = .GlobalEnv);
@@ -12,7 +13,6 @@ parallelize_setEnable = function(state) {
 		assign('parallelize', parallelize_dummy, envir = .GlobalEnv);
 		assign('parallelize_call', parallelize_call_dummy, envir = .GlobalEnv);
 	} else {
-		if (!exists('parallelize_env', envir = .GlobalEnv)) assign('parallelize_env', new.env(), envir = .GlobalEnv);
 		assign('Lapply', Lapply_backup, envir = .GlobalEnv);
 		assign('Sapply', Sapply_backup, envir = .GlobalEnv);
 		assign('Apply', Apply_backup, envir = .GlobalEnv);

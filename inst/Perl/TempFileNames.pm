@@ -629,9 +629,17 @@ sub dirList { my($path, $host) = @_;
 }
 sub dirListPattern { my ($prefix, $postfix, $o) = @_;
 	my $sp = splitPathDict($prefix);
-	my @files = dirList(firstDef($sp->{dir}, "."), defined($o)? $o->{host}: undef);
-	@files = grep { /^$sp->{file}.*$postfix$/ } @files;
+	my @files;
+	if ($o->{recursive}) {
+		my $r = System('find '. qs($sp->{dir}), 5, undef, { returnStdout => 'YES' });
+		@files = map { substr($_, length($sp->{dir})) } split(/\n/, $r->{output});
+	} else {
+		@files = dirList(firstDef($o->{asDir}? $prefix: $sp->{dir}, '.'),
+			defined($o)? $o->{host}: undef);
+	}
+	@files = grep { /^$sp->{file}.*($postfix)$/ } @files;
 	@files = map { "$sp->{dir}/$_" } @files if (uc($o->{returnDir}) eq 'YES');
+	@files = sort { $a cmp $b } @files if ($o->{sort});
 	return @files;
 }
 sub fileList { my ($prefix, $o) = @_;
@@ -752,7 +760,8 @@ sub pipeStringToCommandSystem { my ($strRef, $cmd, $logLevel)=@_;
 sub mergeDictToString { my ($hash, $str, $flags)=@_;
 	my $maxIterations = firstDef($flags->{maxIterations}, 20);
 	my @keys = grep { defined($hash->{$_}) } keys(%{$hash});
-	if (uc($flags->{sortKeys}) eq 'YES' || uc($flags->{iterate}) eq 'YES')
+	my $doIterate = uc($flags->{iterate}) eq 'YES';
+	if (uc($flags->{sortKeys}) eq 'YES' || $doIterate)
 	{	@keys = sort { length($b) <=> length($a); } @keys;
 	}
 	if (uc($flags->{sortKeysInOrder}) eq 'YES')
@@ -763,11 +772,15 @@ sub mergeDictToString { my ($hash, $str, $flags)=@_;
 		$str0 = $str;
 		if (uc($flags->{keysAreREs}) eq 'YES')
 		{	foreach $key (@keys)
-			{	$str=~s/$key/$hash->{$key}/g;
+			{	$str =~ s/$key/$hash->{$key}/g;
+				# need to start from beginning to retain length order
+				last if ($doIterate && $str ne $str0);
 			}
 		} else {
 			foreach $key (@keys)
 			{	$str=~s/\Q$key\E/$hash->{$key}/g;
+				# need to start from beginning to retain length order
+				last if ($doIterate && $str ne $str0);
 			}
 		}
 	} while (uc($flags->{iterate}) eq 'YES' && ($str ne $str0) && --$maxIterations);
@@ -981,9 +994,13 @@ sub callTriggersFromOptions { my ($c, @args) = @_;
 	exit($ret) if ($didCall);
 }
 
+
 %StartStandardScriptOptions = (
 	returnDeepStruct => 0, triggerPrefix => 'do', callTriggers => 1, helpOnEmptyCall => 0
 );
+# example for option === function name
+# $main::d = { triggerPrefix => '' };
+# $main::o = [ '+encryptToHex=s'];
 
 # $returnDeepStruct returns a dict with elements c, o, cred
 #	return a merged dict otherwise

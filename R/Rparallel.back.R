@@ -320,13 +320,14 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendSnow', function(self) {
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
 	calls = freezer$getCalls();
+	Log(sprintf('Snow dispatch: %d calls', length(calls)), 5);
 # 	calls = lapply(calls, function(call) {
 # 		call$fct = environment_eval(call$fct, functions = T);
 # 		call
 # 	});
 	r = clapply(calls, function(call) {
 		parallelize_setEnable(F);
- 		sink('/tmp/debug', append = T);print(Lapply);sink();
+ 		#sink('/tmp/debug', append = T);print(Lapply);sink();
 		#call = callEvalArgs(call);
 # 		sink('/tmp/debug', append = T);print(join(names(as.list(environment(call$fct)))));print(as.list(environment(as.list(environment(call$fct))$f)));print(str(call));sink();
 		Do.call(call$fct, call$args)
@@ -521,7 +522,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 	# <p> split up calls into 'parallel_count' no of slots
 	idcs = splitListIndcs(freezer$Ncalls(), c$parallel_count);
 
-	f0 = function(listcalls) {
+	ogs_frozen_call__ = function(listcalls) {
 		parallelize_setEnable(F);
 		lapply(listcalls, function(lc) {
 			lapply(lc$elements, function(e)
@@ -529,22 +530,23 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 			)
 		})
 	}
-	r = lapply(1:dim(idcs)[1], function(.i) {
-		path = parallelizationStatePath(self, 'sequence:%03d_chunk:%05d', Lapply__$sequence, .i);
-		mycalls = freezer$callRange(idcs[.i, 1], idcs[.i, 2]);
+	r = lapply(1:dim(idcs)[1], function(job_index__) {
+		path = parallelizationStatePath(self, 'sequence:%03d_chunk:%05d', Lapply__$sequence, job_index__);
+		mycalls = freezer$callRange(idcs[job_index__, 1], idcs[job_index__, 2]);
 		# force evaluation/restriction of environment
 		mycalls = lapply(mycalls, function(lc) {
 			lc$fct = environment_eval(lc$fct, functions = self@config$copy_environments);
 			lc
 		});
-		freeze_control_chunk = c(freeze_control, list(rng = RNGuniqueSeed(c(self@signature, .i))));
-		Log(sprintf("Unique seed for job %d: %d", .i, freeze_control_chunk$rng$seed), 5);
-		r = freezeCallOGS(self, f0, listcalls = mycalls,
+		freeze_control_chunk = c(freeze_control, list(rng = RNGuniqueSeed(c(self@signature, job_index__))));
+		Log(sprintf("Unique seed for job %d: %d", job_index__, freeze_control_chunk$rng$seed), 5);
+		r = freezeCallOGS(self, ogs_frozen_call__, listcalls = mycalls,
 			freeze_file = path, freeze_control = freeze_control_chunk,
+			cwd = getwd(),
 			qsubMemory = self@config$qsubParallelMemory,
 			thaw_transformation = thaw_object
 		);
-		r = c(r, list(file = path, from = idcs[.i, 1], to = idcs[.i, 2]));
+		r = c(r, list(file = path, from = idcs[job_index__, 1], to = idcs[job_index__, 2]));
 		r
 	});
 	self@jids$pushChunks(list.kp(r, 'jid', do.unlist = T));
@@ -720,6 +722,7 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 
 setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_) {
 	callNextMethod(self);
+	Log('ParallelizeBackendOGSremote:initScheduling', 6);
 	r = with(self@config, {
 	# <p> check starting sentinel
 	sentinelPath = parallelizationStatePath(self, 'OGSremote_sentinel');
@@ -744,7 +747,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	ignore.shell = Log.level() < 5;
 	Dir.create(remoteDir, recursive = T, ignore.shell = ignore.shell);
 	# either copy source files or explicitely spcified copyFiles (important for dirs);
-	copyFiles = if (length(self@config$copyFiles) > 0) copyFiles else sourceFiles;
+	copyFiles = if (length(self@config$copyFiles) > 0) union(copyFiles, sourceFiles) else unique(sourceFiles);
 	Log(sprintf('Copying files: %s', join(copyFiles, ', ')), 5);
 	File.copy(copyFiles, remoteDir, ignore.shell = ignore.shell, recursive = T, symbolicLinkIfLocal = T);
 	# clear jids
@@ -764,7 +767,9 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		freeze_relative = T
 	);
 	remoteConfig = .remoteConfigForOGSremote(stateDir = '.');
+	Log('ParallelizeBackendOGSremote:initScheduling:callEvalArgs', 7);
 	call_ = callEvalArgs(call_, env_eval = self@config$copy_environments);
+	Log('ParallelizeBackendOGSremote:initScheduling:freezeCallOGS', 7);
 	r = freezeCallOGS(self, parallelize_remote,
 		# parallelize_remote
 		call_, Lapply_config = remoteConfig,
@@ -777,6 +782,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
 		ssh_source_file = self@config$ssh_source_file);
 	});
+	Log('ParallelizeBackendOGSremote:initScheduling:freezeCallOGS:after', 7);
 	self@jids$pushStep(r$jid);
 	r
 });

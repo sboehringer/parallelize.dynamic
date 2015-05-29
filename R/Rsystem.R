@@ -125,7 +125,7 @@ File.exists = function(path, host = '', agent = 'ssh', ssh = T) {
 	r
 }
 
-File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, ignore.shell = T,
+File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, ignore.shell = T,
 	symbolicLinkIfLocal = T) {
 	spF = splitPath(from, ssh = T);
 	spT = splitPath(to, ssh = T);
@@ -146,6 +146,17 @@ File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, 
 			ifelse(ignore.shell, '>/dev/null', '')
 		), logLevel);
 	}
+	r
+}
+
+File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, ignore.shell = T,
+	symbolicLinkIfLocal = T) {
+	pairs = cbind(from, to);
+	r = apply(pairs, 1, function(r) {
+		File.copy_raw(r[1], r[2], ...,
+			recursive = recursive, agent = agent, logLevel = logLevel,
+			ignore.shell = ignore.shell, symbolicLinkIfLocal = symbolicLinkIfLocal)
+	})
 	r
 }
 
@@ -257,17 +268,21 @@ GlobalOutput_env__ = new.env();
 	o = merge.lists(.globalOutputDefault, .globalOutput,
 		get('.globalOutput', envir = GlobalOutput_env__), options);
 	# construct plain filename
-	sp = splitPath(sprintf('%s%s%s%s', o$prefix, name, ifelse(extension == '', '', '.'), extension));
-	# <p> dir
-	if (!file.exists(sp$dir)) dir.create(sp$dir);
-	# <p> tag
-	ext = firstDef(sp$ext, '');
-	fn = if (!is.null(o$tag)) {
-		if (o$tagFirst) {
-			sprintf('%s/%s-%s%s%s', sp$dir, o$tag, sp$base, ifelse(ext == '', '', '.'), ext)
-		} else { sprintf('%s/%s-%s%s%s', sp$dir, sp$base, o$tag, ifelse(ext == '', '', '.'), ext) };
-	} else sprintf('%s/%s%s%s', sp$dir, sp$base, ifelse(ext == '', '', '.'), ext);
-	fn
+	pathes = sprintf('%s%s%s%s', o$prefix, name, ifelse(extension == '', '', '.'), extension);
+	fn = sapply(pathes, function(path) {
+		sp = splitPath(path);
+		# <p> dir
+		if (!file.exists(sp$dir)) dir.create(sp$dir);
+		# <p> tag
+		ext = firstDef(sp$ext, '');
+		fn = if (!is.null(o$tag)) {
+			if (o$tagFirst) {
+				sprintf('%s/%s-%s%s%s', sp$dir, o$tag, sp$base, ifelse(ext == '', '', '.'), ext)
+			} else { sprintf('%s/%s-%s%s%s', sp$dir, sp$base, o$tag, ifelse(ext == '', '', '.'), ext) };
+		} else sprintf('%s/%s%s%s', sp$dir, sp$base, ifelse(ext == '', '', '.'), ext);
+		fn
+	});
+	avu(fn)
 }
 .fn.pushPrefix = function(prefix) {
 	output = merge.lists(.globalOutput, list(prefix = sprintf('%s%s', .globalOutput$prefix, prefix)));
@@ -360,24 +375,16 @@ Log = function(o, level = get('DefaultLogLevel', envir = Log_env__)) {
 		cat(sprintf("R %s: %s\n", date(), as.character(o)));
 	}
 }
+Logs = function(o, level = get('DefaultLogLevel', envir = Log_env__), ..., envir = parent.frame()) {
+	Log(Sprintf(o, ..., envir = envir), level = level);
+}
+
 Log.level = function()get('GlobalLogLevel', envir = Log_env__);
 Log.setLevel = function(level = get('GlobalLogLevel', envir = Log_env__)) {
 	assign("GlobalLogLevel", level, envir = Log_env__);
 }
 Log.setLevel(4);	# default
 
-# quote if needed
-qs = function(s) {
-	# <N> better implementation possible: detect unquoted white-space
-	if (length(fetchRegexpr('[ \t]', s)) > 0) {
-		s = gsub('([\\"])', '\\\\\\1', s);
-		s = sprintf('"%s"', s);
-	} else {
-		s0 = gsub("([\\'])", '\\\\\\1', s);
-		if (s0 != s) s = sprintf("$'%s'", s0);
-	}
-	s
-}
 .System.fileSystem = list(
 	#tempfile = function(prefix, ...)tempfile(splitPath(prefix)$base, tmpdir = splitPath(prefix)$dir, ...),
 	tempfile = function(prefix, ...)tempFileName(prefix, ...),
@@ -402,7 +409,7 @@ qs = function(s) {
 	post = function(spec, ret, ...) { list(jid = as.integer(spec$fs$readFile(spec$jidFile))) }
 	),
 	
-	cwd = list(pre = function(cmd, spec, ..., cwd = '.') {
+	cwd = list(pre = function(cmd, spec, cwd = '.', ...) {
 		ncmd = sprintf('cd %s ; %s', qs(cwd), cmd);
 		spec = list(cmd = ncmd);
 		spec
@@ -589,6 +596,7 @@ clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 
 	# <p> establish node environment
 	envs = listKeyValue(list.key(clCfg$hosts, "host"), list.key(clCfg$hosts, "environment", unlist = F));
+	Log(clCfg, 7);
 	if (establishEnvironment) r = clusterApply(cl, hosts, function(host, environments, cfg){
 		env = environments[[host]];
 		if (!is.null(env$setwd)) setwd(env$setwd);
@@ -925,7 +933,7 @@ freezeCallEncapsulated = function(call_,
 
 # <!> assume matched call
 # <A> we only evaluate named args
-callEvalArgs = function(call_, env_eval = F) {
+callEvalArgs = function(call_, env_eval = FALSE) {
 	#if (is.null(call_$envir__) || is.null(names(call_$args))) return(call_);
 	#if (is.null(call_$envir) || !length(call_$args)) return(call_);
 
@@ -947,7 +955,7 @@ callEvalArgs = function(call_, env_eval = F) {
 }
 
 #callWithFunctionArgs = function(f, args, envir__ = parent.frame(), name = NULL) {
-callWithFunctionArgs = function(f, args, envir__ = environment(f), name = NULL, env_eval = F) {
+callWithFunctionArgs = function(f, args, envir__ = environment(f), name = NULL, env_eval = FALSE) {
 	if (env_eval) f = environment_eval(f, functions = T);
 	call_ = list(
 		fct = f,
@@ -1104,8 +1112,9 @@ Source = function(file, ...,
 
 # complete: return only complete data with respect to specified colums
 # NA: specify 'NA'-values
+readTableSepMap = list(T = "\t", S = ' ', C = ',', `;` = ';', `S+` = '');
 optionParser = list(
-	SEP = function(e)list(T = "\t", S = ' ', C = ',', `;` = ';', `S+` = '')[[e]],
+	SEP = function(e)readTableSepMap[[e]],
 	QUOTE = function(e)(if (e == 'F') '' else e),
 	HEADER = function(e)list(T = T, F = F)[[e]],
 	NAMES = function(e)splitString(';', e),
@@ -1120,6 +1129,13 @@ optionParser = list(
 		unlist.n(r, 1)
 	},
 	HEADERMAP = function(e){ r = lapply(splitString(';', e), function(e){
+			r = splitString(':', e);
+			listKeyValue(r[1], r[2])
+		});
+		unlist.n(r, 1)
+	},
+	# tb implemented: <i>: merge.lists recursive
+	VALUEMAP = function(e){ r = lapply(splitString(';', e), function(e){
 			r = splitString(':', e);
 			listKeyValue(r[1], r[2])
 		});
@@ -1168,7 +1184,9 @@ readTable.RData = function(path, options = NULL, headerMap = NULL) {
 	t
 }
 
-readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, colnamesFile = NULL,...) {
+# <!> as of 23.5.2014: headerMap after o$NAMES assignment
+readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, colnamesFile = NULL, ...,
+	as_factor = NULL) {
 	path = join(path, '');
 	o = list();
 	if (extendedPath) {
@@ -1182,10 +1200,10 @@ readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, c
 		f = if (exists(name)) get(name) else readTable.csv;
 		f(path, options = o, ...)
 	} else readTable.csv(path, options = o, ...);
-	headerMap = firstDef(headerMap, o$HEADERMAP);
-	if (!is.null(headerMap)) names(r) = vector.replace(names(r), headerMap);
 	if (!is.null(o$NAMES) && length(o$NAMES) <= ncol(r)) names(r)[1:length(o$NAMES)] = o$NAMES;
 	colnamesFile = firstDef(o$COLNAMESFILE, colnamesFile);
+	headerMap = firstDef(headerMap, o$HEADERMAP);
+	if (!is.null(headerMap)) names(r) = vector.replace(names(r), headerMap);
 	if (!is.null(colnamesFile)) {
 		ns = read.table(colnamesFile, header = F, as.is = T)[, 1];
 		names(r)[1:length(ns)] = ns;
@@ -1193,6 +1211,7 @@ readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, c
 	if (!is.null(o$PROJECT)) r = r[, o$PROJECT];
 	if (!is.null(o$complete)) r = r[apply(r[, o$complete], 1, function(e)!any(is.na(e))), ];
 	if (!is.null(o$CONST)) { for (n in names(o$CONST)) r[[n]] = o$CONST[[n]]; }
+	if (!is.null(as_factor)) r = Df_(r, as_factor = as_factor);
 	r
 }
 
@@ -1387,6 +1406,7 @@ createModule = function(name, libpathes = c(), headers = c(), output = NULL) {
 	rcpp = cxxfunction( signature(), '' , includes = inc, plugin = 'Rcpp', verbose = T );
 	mod = Module( name,  getDynLib(rcpp) );
 	if (!is.null(output)) {
+		Dir.create(output, recursive = T);
 		libfiles = sapply(libpathes, function(lib) {
 			File.copy(lib, sprintf('%s/%s', output, splitPath(lib)$file));
 			splitPath(lib)$file
@@ -1429,50 +1449,69 @@ sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL) 
 	createDbSql
 }
 
+# Create sqlite database with contents of csv-file
+# @par index: list of columns to index
+# @par type: sqlite types: integer, real, text, blob, not specified assumes text
+
+csv2sqlitSepMap = readTableSepMap;
 sepMap = list(T = '\\t', S = ' ', C = ',', `;` = ';', `S+` = '');
 sepMapCut = list(T = '\\t', S = '" "', C = ',', `;` = ';', `S+` = '');
-csv2sqlite = function(url, output = tempfile(), header = NULL, skip = NULL, selectColumns = NULL,
-	index = NULL, sep = 'T',
+csv2sqlite = function(path, output = tempfile(),
+	columnsNames = NULL, columnsSelect = NULL,
+	index = NULL,
+	inputSep = 'T', inputHeader = T, inputSkip = NULL,
 	NULLs = NULL, types = list()) {
-	# <p> determine header
-# 	tmp1 = tempfile();
-# 	ret = download.file(url, tmp1, method, quiet = FALSE, mode = "w", cacheOK = TRUE);
-	#if (ret) stop(sprintf("Download of '%s' failed.", url));
-	tmp1 = '/home/pingu/Downloads/gene2accession.gz';
-	if (is.null(header)) {
-		tmpHeader = tempfile();
-	}
 
+	# <!> cave: does not heed skip
+	if (!inputHeader && is.null(columnsNames)) {
+		columnsNames = read.table(path, header = F, nrows = 1, sep = csv2sqlitSepMap[[inputSep]]);
+	}
 	# <p> select columns
-	cut = if (!is.null(selectColumns)) {
-		skipColumnsIds = which.indeces(selectColumns, header);
+	cut = if (!is.null(columnsSelect)) {
+		skipColumnsIds = which.indeces(columnsSelect, columnsNames);
 		sprintf('| cut %s -f %s ',
-			if (sep == 'T') '' else sprintf('-d %s', sepMapCut[[sep]]),
+			if (inputSep == 'T') '' else sprintf('-d %s', sepMapCut[[inputSep]]),
 			join(skipColumnsIds, ',')
 		)
 	} else '';
-	columns = if (is.null(selectColumns)) header else selectColumns;
-
+	columns = if (is.null(columnsSelect)) columnsNames else columnsSelect;
+	types = merge.lists(listKeyValue(columns, rep('text', length(columns))), types);
 	sqlCreateTable(columns, types, index, createAt = output);
 
 	# <p> import data
-	skipCommand = if (is.null(skip)) '' else sprintf('| tail -n +%d ', skip + 1);
-	reader = if (splitPath(url)$ext == 'gz') 'zcat' else 'cat';
-	importSql = join(sep = "\n", c(
-		sprintf(".separator %s\n", sepMap[[sep]]),
+	skipCommand = if (is.null(inputSkip)) '' else sprintf('| tail -n +%d ', inputSkip + 1);
+	reader = if (splitPath(path)$ext == 'gz') 'zcat' else 'cat';
+	importSql = writeFile(tempfile(), join(sep = "\n", c(
+		sprintf(".separator %s\n", sepMap[[inputSep]]),
 		sprintf(".import \"/dev/stdin\" data")
-	));
+	)));
 
-	sepText = sepMap[[sep]];
+	sepText = sepMap[[inputSep]];
 	filter = if (is.null(NULLs)) '' else
 		sprintf("| perl -pe 's/((?<=%s)(?:%s)(?=%s|$)|(?<=^)(?:%s)(?=%s|$))//g'",
 			sepText, join(NULLs, '|'), sepText, sepText, sepText);
-	cmd = sprintf("%s %s %s %s %s | sqlite3 -init %s %s",
-		reader, qs(tmp1), skipCommand, cut, filter, qs(writeFile(tempfile(), importSql)), qs(output));
+	cmd = Sprintf(con(
+		"%{reader}s %{path}Q %{skipCommand}s %{cut}s %{filter}s",
+		" | sqlite3 -init %{importSql}Q %{output}Q"));
 	System(cmd, 1);
 	output
 }
-qq = function(s)as.character(fetchRegexpr('([^ ]+)', s, captures = T))
+# <!> unfinished, siphones code from old csv2sqlite function
+url2sqlite = function(url, output = tempfile(), header = NULL, skip = NULL, selectColumns = NULL,
+	index = NULL, sep = 'T',
+	NULLs = NULL, types = list()) {
+	
+	# <p> determine header
+ 	tmp1 = tempfile();
+ 	ret = download.file(url, tmp1, method, quiet = FALSE, mode = "w", cacheOK = TRUE);
+	#if (ret) stop(sprintf("Download of '%s' failed.", url));
+	if (is.null(header)) {
+		tmpHeader = tempfile();
+	}
+}
+
+# <!> 7.1.2015: was qq, but conflicts with QQ-plot function
+qquote = function(s)as.character(fetchRegexpr('([^ ]+)', s, captures = T))
 
 sqlite2sqlite = function(dbS, dbD, query, cols, types = list(), index = NULL) {
 	sqlCreateTable(cols, types, index, createAt = dbD);
@@ -1485,4 +1524,86 @@ sqlite2sqlite = function(dbS, dbD, query, cols, types = list(), index = NULL) {
 	);
 	System(cmd, 1);
 	dbD
+}
+
+sqliteOpen = function(path) {
+	require('RSQLite');
+	dbConnect(SQLite(), dbname = path);
+}
+sqliteQuery = function(db, query, table = NULL) {
+	if (is.null(table)) table = dbListTables(db)[1];
+	query = con(sapply(names(query), function(n)Sprintf('%{n}Q = %{v}s', v = qs(query[[n]], force = T))));
+	query1 = Sprintf('SELECT * FROM %{table}Q WHERE %{query}s');
+	Log(query1, 5);
+	dbGetQuery(db, query1);
+}
+
+#
+#	<p> publishing
+#
+
+# if (1) {
+# 	initPublishing('expressionMonocytes201404', '201405');
+# 	publishFile('results/expressionMonocytesReportGO.pdf');
+# }
+
+Publishing_env__ <- new.env();
+initPublishing = function(project, currentIteration, publicationPath = '/home/Library/ProjectPublishing') {
+	assign('project', project, Publishing_env__);
+	assign('projectMd5', md5sumString(project), Publishing_env__);
+	assign('currentIteration', currentIteration, Publishing_env__);
+	assign('publicationPath', publicationPath, Publishing_env__);
+}
+publishFctEnv = function(path, into = NULL, as = NULL) with(as.list(Publishing_env__), {
+	if (!exists('project')) stop('Publishing system not yet initialized.');
+
+	projectFolder = Sprintf('%{publicationPath}s/%{projectMd5}s');
+	prefix = if (is.null(into)) '' else Sprintf('%{into}s/');
+	destinationPrefix = Sprintf('%{projectFolder}s/%{currentIteration}s/%{prefix}s');
+	destination = Sprintf('%{destinationPrefix}s%{path}s',
+		path = if (is.null(as)) splitPath(path)$file else as);
+	r = list(projectFolder = projectFolder, prefix = prefix, destination = destination,
+		destinationPrefix = destinationPrefix);
+	r
+})
+
+
+publishFile = function(file, into = NULL, as = NULL) with(publishFctEnv(file, into, as), {
+	if (!is.null(into)) Dir.create(destination, treatPathAsFile = T);
+	Logs('Publishing %{file} --> "%{destination}s', 3);
+	Dir.create(splitPath(destination)$dir, recursive = T);
+	System(Sprintf("chmod -R a+rX %{dir}s", dir = qs(projectFolder)), 4);
+	file.copy(file, destination, overwrite = T);
+	Sys.chmod(destination, mode = '0755', use_umask = F);
+	destination
+})
+
+
+publishDir = function(dir, into = NULL, as = NULL) with(publishFctEnv('', into, as), {
+	if (!is.null(into)) Dir.create(destination);
+	Logs('Publishing %{dir} --> "%{destination}s', 3);
+	Dir.create(destination, recursive = T);
+	System(Sprintf("chmod -R a+rX %{dir}s", dir = qs(projectFolder)), 4);
+	System(Sprintf("cp -r %{dir}s/ %{dest}s", dir = qs(dir),
+		dest = qs(destination)), 4);
+	System(Sprintf("chmod -R a+rX %{dir}s", dir = qs(projectFolder)), 4);
+	destination
+})
+
+#
+#	<p> quick pdf generation
+#
+
+print2pdf = function(elements, file) {
+	es = elements;
+	tf = tempfile();
+	sink(tf);
+		nlapply(es, function(n) {
+			cat(n);
+			cat('\n-------------------------------------------\n');
+			print(es[[n]]);
+			cat('\n\n');
+		})
+	sink();
+	System(Sprintf('a2ps %{tf}s --columns 1 --portrait --o - | ps2pdf - - > %{output}s', output = qs(file)));
 }

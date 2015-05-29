@@ -84,7 +84,6 @@ config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = lis
     ),
     `ogs-1` = list(
       backend = 'OGS',
-      freezerClass = 'LapplyPersistentFreezer',
       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
       stateDir = sprintf('\%s/tmp/remote', tempdir()),
       qsubOptions = sprintf('--queue all.q --logLevel \%d', 2),
@@ -92,7 +91,6 @@ config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = lis
     ),
     `ogs-2` = list(
       backend = 'OGS',
-      freezerClass = 'LapplyPersistentFreezer',
       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
       stateDir = sprintf('\%s/tmp/remote', tempdir()),
       qsubOptions = sprintf('--queue subordinate.q --logLevel \%d', 2),
@@ -101,7 +99,6 @@ config = list(max_depth = 5, parallel_count = 24, offline = TRUE, backends = lis
     `ogs-3` = list(
       backend = 'OGSremote',
       remote = 'user@localhost:tmp/remote/test',
-      freezerClass = 'LapplyPersistentFreezer',
       sourceFiles = c('RgenericAll.R', 'RlabParallel.R'),
       stateDir = sprintf('\%s/tmp/remote/test_local', tempdir()),
       qsubOptions = sprintf('--queue all.q --logLevel \%d', 2),

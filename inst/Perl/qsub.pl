@@ -18,6 +18,7 @@ my $helpText = <<HELP_TEXT;
 	--jidReplace=path	write jid to file
 	--priority number	set priority to number
 				(-1000 to 1000 for SGE) [0]
+	--memory size	set memory limit (e.g. 8G)
 	# Options to qsub.pl have to be terminated by --
 
 	# Environment variables
@@ -72,7 +73,8 @@ my %Options = (
 	'-V' => '',	# pass environment variables
 	'-e' => 'QSUB_OUT', '-o' => 'QSUB_OUT',
 	'-p' => 'options_PRIORITY',
-	'-l' => 'h_vmem=options_MEMORY'
+	'-l' => 'h_vmem=options_MEMORY',
+	'-pe' => sub { return $_[0]->{Ncpu} == 1? undef: sprintf('BWA %d', $_[0]->{Ncpu}) }
  );
 my %OptionsOnOff = (
 	checkpointing => [ '-ckpt' =>  'check_userdefined']
@@ -95,6 +97,8 @@ sub submitCommand { my ($cmd, $o) = @_;
 	my %opts = (%{makeHash([keys %Options], [map { mergeDictToString($mergeDict, $_)} values %Options])});
 	# add fixed options based on
 	%opts = (%opts, map { (defined($o->{$_})? @{$OptionsOnOff{$_}}: ()) } keys %OptionsOnOff);
+	# evaluate functions
+	%opts = (%opts, map { ($_, ref($opts{$_}) eq 'CODE'? $opts{$_}->($o): $opts{$_}) } keys %opts);
 	
 	if (defined($o->{waitForJids})) {
 		my @jids = grep { !!$_ } (($o->{waitForJids} =~ m{^\d+\s*(,\s*\d+\s*)*$}so))
@@ -135,7 +139,8 @@ sub submitCommand { my ($cmd, $o) = @_;
 		priority => firstDef($ENV{QSUB_PRIORITY}, 0),
 		tmpPrefix => firstDef($ENV{QSUB_TMPPREFIX}, '/tmp/qsub_pl_'.$ENV{USER}),
 		exports => 'PATH',
-		memory => firstDef($ENV{QSUB_MEMORY}, '4G')
+		memory => firstDef($ENV{QSUB_MEMORY}, '4G'),
+		Ncpu => 1
 	};
 	my $optionsPresent = int(grep { $_ eq '--' } @ARGV) > 0;
 	# <!><i> proper command line splitting
@@ -147,7 +152,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	: GetOptionsStandard($o,
 		'help', 'jid=s', 'jidReplace=s', 'exports=s',
 		'waitForJids=s', 'outputDir=s', 'unquote!', 'queue=s', 'priority=i', 'cmdFromFile=s', 'checkpointing',
-		'memory=s'
+		'memory=s', 'Ncpu=i'
 	);
 	# <!> heuristic for unquoting
 	$o->{unquote} = 1 if (!defined($o->{unquote}) && @ARGV == 1);

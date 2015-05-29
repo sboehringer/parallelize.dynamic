@@ -7,7 +7,7 @@ require	Exporter;
 
 @ISA		= qw(Exporter);
 
-@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround);
+@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround &changeSet &syncSets);
 
 use TempFileNames;
 
@@ -696,6 +696,74 @@ sub modfloor { my ($v, %a) = @_;
 
 sub modround { my ($v, %a) = @_;
 	return modfloor($v + $a{step}/2, %a);
+}
+
+#
+#	<p> set syncing
+#
+
+# Sync algorithm
+#	assume N sources
+#	iterate sources
+#	determine updates: changed fields, new elements, deletes
+#	propagate to other sources, conflicts
+#	global ids, ids per source
+
+# $a is external read
+# $b database representation (linked)
+sub changeSet { my ($a, $b) = @_;
+	my @idA = map { $_->{id} } @$a;
+	my @idB = map { $_->{id} } @$b;
+
+	my $cmp = compareSets($ids, $idsRef);
+	my @new = @{$cmp->{diffa}};
+	my @del = @{$cmp->{diffb}};
+	my @update = grep {
+		$a->{$_}{representation} ne $b->{$_}{representation}
+	} @{intersection(\@idA, \@idB)};
+	return {
+		new => { elements => [@a[@new]]},
+		delete => { ids => [@del]},
+		update => { ids => [@update], elements =>  [@a[@update]] }
+	};
+}
+
+sub applyChangeSetDeletes { my (@ids) = @_;
+	for $id (@ids) {
+		$rs->delete($id);
+	}
+}
+sub applyChangeSetInserts { my (@elements) = @_;
+	for $e (@elements) {
+		$rs->insert($e);
+	}
+}
+sub applyChangeSetUpdates { my (@elements) = @_;
+	for $e (@elements) {
+		$rs->update($e, { id => $e->{id} } );
+	}
+}
+
+sub applyChangeSet { my ($cs) = @_;
+	applyChangeSetDeletes($cs->{delete});
+	applyChangeSetInserts($cs->{insert});
+	applyChangeSetUpdates($cs->{update});
+}
+
+sub syncSets { my ($setLeaf, $setRef, %c) = @_;
+	%c = ( idKey => 'id', %c );
+	my $l = makeHash( [ map { $_->{$c{idKey}} } @$set ],  $setLeaf );
+	my $r = makeHash( [ map { $_->{$c{idKey}} } @$set ],  $setRef );
+	my $ids = [keys %$l];
+	my $idsRef = [keys %$r];
+
+	# determine operations relative to reference
+	my $cmp = compareSets($ids, $idsRef);
+	my @new = @{$cmp->{diffa}};
+	my @del = @{$cmp->{diffb}};
+	my $update = intersection($ids, $idsRef);
+	my @uref = grep { $l->{$_}{date} > $r->{$_}{timestamp} } @$update;
+	my @uleaf = grep { $l->{$_}{date} < $r->{$_}{timestamp} } @$update;
 }
 
 1;
