@@ -8,7 +8,7 @@ This github version of the package can be installed using package devtools.
 
 ```r
 require('devtools');
-install_github('parallelize.dynamic', 'sboehringer');
+install_github('sboehringer/parallelize.dynamic', subdir = 'parallelize.dynamic');
 ```
 
 The latest stable, CRAN-accepted version can be locally installed with:

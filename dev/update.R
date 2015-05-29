@@ -11,11 +11,11 @@ if (1) {
 if (1) {
 	require('roxygen2');
 	require('devtools');
-	roxygenize('.', roclets = 'namespace');
-	update_collate('.');
+	roxygenize('../parallelize.dynamic', roclets = 'namespace');
+	update_collate('../parallelize.dynamic');
 	#system('git commit -a -m "documentation update" ; git push');
-	document('.');
-	install_local('.');
+	document('../parallelize.dynamic');
+	install_local('../parallelize.dynamic');
 }
 
 if (0) {

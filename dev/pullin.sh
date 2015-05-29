@@ -9,12 +9,12 @@
 #
 
 PERLLIB=~/src/privatePerl
-cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm ~/bin/qsub.pl inst/Perl
+cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm ~/bin/qsub.pl ../parallelize.dynamic/inst/Perl
 
 #
 #	<p> R
 #
-cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R R
+cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R ../parallelize.dynamic/R
 
 #
 #	<p> R (just once)
