@@ -10,10 +10,12 @@ if (1) {
 
 if (1) {
 	require('roxygen2');
+	require('devtools');
 	roxygenize('.', roclets = 'namespace');
-	roxygenize('.', roclets = 'rd');
-	update_collate('parallelize.dynamic');
+	update_collate('.');
 	#system('git commit -a -m "documentation update" ; git push');
+	document('.');
+	install_local('.');
 }
 
 if (0) {
