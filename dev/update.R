@@ -15,7 +15,7 @@ if (1) {
 	update_collate('../parallelize.dynamic');
 	#system('git commit -a -m "documentation update" ; git push');
 	document('../parallelize.dynamic');
-	install_local('../parallelize.dynamic');
+	#install_local('../parallelize.dynamic');
 }
 
 if (0) {
