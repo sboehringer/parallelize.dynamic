@@ -272,6 +272,11 @@ splitString = function(re, str, ..., simplify = T) {
 	l
 }
 quoteString = function(s)sprintf('"%s"', s)
+trimString = function(s) {
+	sapply(s, function(e)
+		if (is.na(e)) NA else FetchRegexpr('^\\s*(.*?)\\s*$', e, captures = T)
+	)
+}
 
 mergeDictToString = function(d, s, valueMapper = function(s)
 	ifelse(is.na(d[[n]]), '{\\bf Value missing}', d[[n]]),
@@ -923,6 +928,12 @@ nlapply = function(ns, f, ...) {
 	names(r) = ns;
 	r
 }
+ilapply = function(l, f, ...) {
+	r = lapply(1:length(l), function(i)f(l[[i]], i, ...));
+	if (!is.null(names(l))) names(r) = names(l);
+	r
+}
+
 # USE.NAMES logic reversed for sapply
 sapplyn = function(l, f, ...)sapply(l, f, ..., USE.NAMES = F);
 list.with.names = function(..., .key = 'name') {
@@ -1236,8 +1247,9 @@ vector.embed = function(v, idcs, e, idcsResult = T) {
 	r
 }
 # set values at idcs
-vector.assign = function(v, idcs, e) {
+vector.assign = function(v, idcs, e, na.rm = 0) {
 	v[idcs] = e;
+	if (!is.na(na.rm)) v[is.na(v)] = na.rm;
 	v
 }
 matrix.assign = function(m, idcs, e, byrow = T) {
@@ -1501,10 +1513,15 @@ Dfselect = function(data, l, na.rm = nif) {
 }
 
 
-List_ = .List = function(l, min_ = NULL, rm.null = F, names_ = NULL, null2na = F, simplify_ = F) {
+List_ = .List = function(l, min_ = NULL, sel_ = NULL,
+	rm.null = F, names_ = NULL, null2na = F, simplify_ = F) {
 	if (!is.null(min_)) {
 		i = which.indeces(min_, names(l));
 		if (length(i) > 0) l = l[-i];
+	}
+	if (!is.null(sel_)) {
+		i = which.indeces(sel_, names(l));
+		if (length(i) > 0) l = l[i];
 	}
 	if (rm.null) {
 		remove = -which(sapply(l, is.null));
@@ -1523,6 +1540,12 @@ List = function(..., min_ = NULL, envir = parent.frame(), names_ = NULL) {
 	.List(l, min_ = min_, names_ = names_);
 }
 
+Unlist = function(l, ..., null2na_ = FALSE) {
+	if (null2na_) l[sapply(l, is.null)] = NA;
+	unlist(l, ...)
+}
+
+last = function(v)(v[length(v)])
 pop = function(v)(v[-length(v)])
 # differences between successive elements, first diff is first element with start
 vectorLag = function(v, start = 0)pop(c(v, start) - c(start, v))
@@ -1757,6 +1780,18 @@ meanStructure = function(l) {
 	});
 	r
 }
+
+matrixCenter = function(m, direction = 2, centerBy = median) {
+	center = apply(m, direction, centerBy, na.rm = T);
+	m = if (direction == 1) (m - center) else t(t(m) - center);
+	list(matrix = m, center = center)
+}
+
+matrixDeCenter = function(m, center, direction = 2) {
+	m = if (direction == 1) t(t(m) + center) else (m + center);
+	m
+}
+
 
 #
 #	<p> combinatorial functions

@@ -14,7 +14,8 @@ cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm ~/bin/qsub.pl ../parallelize.dynami
 #
 #	<p> R
 #
-cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R ../parallelize.dynamic/R
+export RPRIVATE=~/src/Rprivate
+cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R $RPRIVATE/Rmeta.R ../parallelize.dynamic/R
 
 #
 #	<p> R (just once)
