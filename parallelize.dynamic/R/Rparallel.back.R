@@ -428,12 +428,14 @@ setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) 
 	set.seed(as.integer(Sys.time()));
 
 	# <p> setup environment
-	Sys.setenv('PATH' = sprintf('%s/Perl:%s', system.file(package = "parallelize.dynamic"),
-		Sys.getenv('PATH'))
-	);
-	Sys.setenv('PERL5LIB' = sprintf('%s/Perl:%s', system.file(package = "parallelize.dynamic"),
-		Sys.getenv('PERL5LIB'))
-	);
+	pathPrefix = sprintf('%s/Perl', system.file(package = "parallelize.dynamic"));
+	pathOld = Sys.getenv('PATH');
+	if (substr(pathOld, 1, nchar(pathPrefix)) != pathPrefix)
+		Sys.setenv('PATH' = sprintf('%s:%s', pathPrefix, pathOld));
+	perlLibPrefix = sprintf('%s/Perl', system.file(package = "parallelize.dynamic"));
+	perlLibOld = Sys.getenv('PERL5LIB');
+	if (substr(perlLibOld, 1, nchar(perlLibPrefix)) != perlLibPrefix)
+		Sys.setenv('PERL5LIB' = sprintf('%s:%s', perlLibPrefix, perlLibOld));
 
 	# <p> jid state
 	.Object@jids$setLogPath(parallelizationStatePath(.Object, 'jids'));
@@ -476,6 +478,8 @@ freezeCallOGS = function(self, ..f, ...,
 		if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
 	);
 	qsubOptions = mergeDictToString(list(`QSUB_MEMORY` = qsubMemory), qsubOptions);
+	Log(con('PATH: ', Sys.getenv('PATH')), 5)
+	Log(con('PERL5LIB: ', Sys.getenv('PERL5LIB')), 5)
 	r = System(wrap, 5, patterns = patterns, qsubOptions = qsubOptions, cwd = cwd,
 		ssh_host = ssh_host, ssh_source_file = ssh_source_file, return.cmd = T);
 	r
