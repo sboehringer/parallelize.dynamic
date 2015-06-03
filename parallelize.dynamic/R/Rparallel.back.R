@@ -427,6 +427,14 @@ setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) 
 	RNGkind("L'Ecuyer-CMRG");
 	set.seed(as.integer(Sys.time()));
 
+	# <p> setup environment
+	Sys.setenv('PATH' = sprintf('%s/Perl:%s', system.file(package = "parallelize.dynamic"),
+		Sys.getenv('PATH'))
+	);
+	Sys.setenv('PERL5LIB' = sprintf('%s/Perl:%s', system.file(package = "parallelize.dynamic"),
+		Sys.getenv('PERL5LIB'))
+	);
+
 	# <p> jid state
 	.Object@jids$setLogPath(parallelizationStatePath(.Object, 'jids'));
 	.Object
