@@ -488,10 +488,10 @@ remoteEnvAdd = function(vars = list(
 	});
 	env
 }
-remoteEnvSetup = function(remotePath) {
-	sp = splitPath(remotePath);
+remoteEnvSetup = function(remoteDir) {
+	sp = splitPath(remoteDir, ssh = T);
 	env = remoteEnvAdd(userhost = sp$userhost);
-	remoteEnvProfile = Sprintf('%{remotePath}s/remoteProfile.sh');
+	remoteEnvProfile = Sprintf('%{remoteDir}s/remoteProfile.sh');
 	envAsString = shellEnvString(env, "\n");
 	writeFile(remoteEnvProfile, envAsString, ssh = T);
 	Logs("Remote env: %{envAsString}s", level = 6);
