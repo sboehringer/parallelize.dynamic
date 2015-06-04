@@ -468,8 +468,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGS', function(self, call_) {
 }
 
 shellEnvString = function(env, sep = '+++', prefix = '') {
-	join(kvlapply(env, function(k, v)
-		Sprintf('%{prefix}s%{K}s=%{V}s', K = trimString(k), V = trimString(v))), sep)
+	join(kvlapply(env, function(k, v)Sprintf('%{prefix}s%{k}s=%{v}s')), sep)
 }
 qsubEnvOptions = function(env) {
 	qsubOptions = join(c('--setenv', shellEnvString(env, '+++'), '--setenvsep=+++'), ' ');
@@ -481,10 +480,10 @@ remoteEnvAdd = function(vars = list(
 	PERL5LIB = "echo `echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -`/Perl"),
 	userhost = 'localhost') {
 	env = kvlapply(vars, function(name, cmd) {
-		valueNew = System(cmd,
-			return.output = T, patterns = 'ssh', ssh_host = userhost)$output;
-		valueOld = System(Sprintf("echo $%{name}s"),
-			return.output = T, patterns = 'ssh', ssh_host = userhost)$output;
+		valueNew = trimString(System(cmd,
+			return.output = T, patterns = 'ssh', ssh_host = userhost)$output);
+		valueOld = trimString(System(Sprintf("echo $%{name}s"),
+			return.output = T, patterns = 'ssh', ssh_host = userhost)$output);
 		Sprintf('%{valueNew}s:%{valueOld}s')
 	});
 	env
