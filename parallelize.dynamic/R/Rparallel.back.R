@@ -482,7 +482,7 @@ remoteEnvAdd = function(vars = list(
 	env = kvlapply(vars, function(name, cmd) {
 		valueNew = System(cmd,
 			return.output = T, patterns = 'ssh', ssh_host = userhost)$output;
-		valueOld = System(Sprintf("echo ${name}s"),
+		valueOld = System(Sprintf("echo $%{name}s"),
 			return.output = T, patterns = 'ssh', ssh_host = userhost)$output;
 		Sprintf('%{valueNew}s:%{valueOld}s')
 	});
