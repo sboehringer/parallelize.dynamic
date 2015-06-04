@@ -483,7 +483,7 @@ freezeCallOGS = function(self, ..f, ...,
 		qs(qsubPath),
 		if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
 	);
-	if (length(.Object@config$remoteEnv) > 0)
+	if (length(self@config$remoteEnv) > 0)
 		qsubOptions = join(c(
 			qsubOptions,
 			'--setenv', join(kvlapply(n, v), join(c(k, v, '=')), '+++'),
