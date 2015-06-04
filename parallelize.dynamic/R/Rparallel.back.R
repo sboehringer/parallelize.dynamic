@@ -426,7 +426,7 @@ setupLocalEnv = function(vars = list(
 		if (substr(valueOld, 1, nchar(valueNew)) != valueNew)
 			Sys.setenv(Sprintf('%{valueNew}s:%{valueOld}s'))
 	});
-	env
+	NULL
 }
 
 setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) {
