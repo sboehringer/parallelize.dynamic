@@ -416,6 +416,19 @@ setClass('ParallelizeBackendOGS',
 .ParallelizeBackendOGSDefaultConfig = list(
 	qsubOptions = '--queue all.q'
 );
+setupLocalEnv = function(vars = list(
+	PATH = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")),
+	PERL5LIB = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic"))) {
+	kvlapply(vars, function(name, cmd) {
+		valueNew = v();
+		valueOld = Sys.getenv(name);
+		# avoid duplications on reruns
+		if (substr(valueOld, 1, nchar(valueNew)) != valueNew)
+			Sys.setenv(Sprintf('%{valueNew}s:%{valueOld}s'))
+	});
+	env
+}
+
 setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) {
 	# <p> super-class
 	config = merge.lists(.ParallelizeBackendOGSDefaultConfig, config);
@@ -428,20 +441,7 @@ setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) 
 	set.seed(as.integer(Sys.time()));
 
 	# <p> setup environment
-	pathPrefix = sprintf('%s/Perl', system.file(package = "parallelize.dynamic"));
-	pathOld = Sys.getenv('PATH');
-	if (substr(pathOld, 1, nchar(pathPrefix)) != pathPrefix)
-		Sys.setenv('PATH' = sprintf('%s:%s', pathPrefix, pathOld));
-	perlLibPrefix = sprintf('%s/Perl', system.file(package = "parallelize.dynamic"));
-	perlLibOld = Sys.getenv('PERL5LIB');
-	if (substr(perlLibOld, 1, nchar(perlLibPrefix)) != perlLibPrefix)
-		Sys.setenv('PERL5LIB' = sprintf('%s:%s', perlLibPrefix, perlLibOld));
-
-	# <p> remote environment
-	r = System("echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -",
-		return.output = T)$output;
-	Logs("Remote path: %{r}s", 6);
-	.Object@config$remoteEnv = list(PATH = r);
+	setupLocalEnv();
 
 	# <p> jid state
 	.Object@jids$setLogPath(parallelizationStatePath(.Object, 'jids'));
@@ -467,30 +467,45 @@ setMethod('initScheduling', 'ParallelizeBackendOGS', function(self, call_) {
 	parallelizeOfflineStep(call_, Lapply_config = Lapply_getConfig());
 }
 
+qsubEnvOptions = function(env) {
+	qsubOptions = join(c(
+		'--setenv', join(kvlapply(n, v), join(c(k, v, '=')), '+++'),
+		'--setenvsep=+++'
+	), ' ');
+	qsubEnvOptions
+}
+remoteEnv = function(vars = list(
+	PATH = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -",
+	PERL5LIB = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -"),
+	userhost = 'localhost') {
+	env = kvlapply(vars, function(name, cmd) {
+		valueNew = System(cmd,
+			return.output = T, patterns = 'ssh', ssh_host = userhost)$output;
+		valueOld = System(Sprintf("echo ${name}s"),
+			return.output = T, patterns = 'ssh', ssh_host = userhost)$output;
+		Sprintf('%{valueNew}s:%{valueOld}s')
+	});
+	env
+}
+
 freezeCallOGS = function(self, ..f, ...,
 	freeze_file = tempfile(), freeze_control = list(), waitForJids = c(),
 	patterns = 'qsub', cwd = NULL, ssh_host = 'localhost', ssh_source_file = NULL,
-	qsubPath = parallelizationStatePath(self, 'qsub', ext = ''), qsubMemory = '4G', envir = NULL,
-	thaw_transformation = identity, freeze_env_eval = F) {
+	qsubPath = parallelizationStatePath(self, 'qsub', ext = ''),
+	qsubMemory = '4G', qsubOptionsAdd = '',
+	envir = NULL, thaw_transformation = identity, freeze_env_eval = F) {
 
 	path = freezeCall(freeze_f = ..f, ...,
 		freeze_file = freeze_file, freeze_save_output = T, freeze_control = freeze_control,
 		freeze_envir = NULL, freeze_env_eval = freeze_env_eval,
 		freeze_objects = 'parallelize_env', thaw_transformation = thaw_transformation);
 	wrap = frozenCallWrap(path, freeze_control);
-	qsubOptions = sprintf('%s --outputDir %s %s',
-		self@config$qsubOptions,
-		qs(qsubPath),
-		if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
+	wait = if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
+	qsubOptions = Sprintf('%{options}s --outputDir %{qsubPath}Q %{wait}s %{qsubOptionsAdd}s',
+		options = self@config$qsubOptions
 	);
-	if (length(self@config$remoteEnv) > 0)
-		qsubOptions = join(c(
-			qsubOptions,
-			'--setenv', join(kvlapply(n, v), join(c(k, v, '=')), '+++'),
-			'--setenvsep=+++'
-		), ' ');
 	qsubOptions = mergeDictToString(list(`QSUB_MEMORY` = qsubMemory), qsubOptions);
-	Logs("qsubOptions: %{qsubOptions}s", 5)
+	Logs("qsubOptions: %{qsubOptions}s", level = 5)
 	r = System(wrap, 5, patterns = patterns, qsubOptions = qsubOptions, cwd = cwd,
 		ssh_host = ssh_host, ssh_source_file = ssh_source_file, return.cmd = T);
 	r
@@ -742,7 +757,6 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 }
 .OGSremoteWorkingDir = function(self).OGSremoteFile(self, tag = '', ext = '')
 
-
 setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_) {
 	callNextMethod(self);
 	Log('ParallelizeBackendOGSremote:initScheduling', 6);
@@ -775,6 +789,10 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	File.copy(copyFiles, remoteDir, ignore.shell = ignore.shell, recursive = T, symbolicLinkIfLocal = T);
 	# clear jids
 	File.remove(.OGSremoteFile(self, 'jids'));
+	# <p> remote environment: environment variables
+	remoteEnv = remoteEnv(userhost = sp$userhost);
+	Logs("Remote env: PATH=%{path}s+++PERL5LIB=%{lib}",
+		path = remoteEnv$PATH, lib = remoteEnv$PERL5LIB, level = 6);
 
 	# <p> create remote wrappers
 	parallelize_remote = function(call_, Lapply_config) {
@@ -803,7 +821,10 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
-		ssh_source_file = self@config$ssh_source_file);
+		qsubOptions = qsubEnvOptions(remoteEnv),
+		ssh_source_file = self@config$ssh_source_file
+	);
+	# end with
 	});
 	Log('ParallelizeBackendOGSremote:initScheduling:freezeCallOGS:after', 7);
 	self@jids$pushStep(r$jid);
