@@ -418,7 +418,7 @@ setClass('ParallelizeBackendOGS',
 );
 setupLocalEnv = function(vars = list(
 	PATH = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")),
-	PERL5LIB = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic"))) {
+	PERL5LIB = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")))) {
 	kvlapply(vars, function(name, cmd) {
 		valueNew = v();
 		valueOld = Sys.getenv(name);
