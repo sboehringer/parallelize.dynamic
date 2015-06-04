@@ -469,7 +469,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGS', function(self, call_) {
 
 qsubEnvOptions = function(env) {
 	qsubOptions = join(c(
-		'--setenv', join(kvlapply(n, v), join(c(k, v, '='), '+++')),
+		'--setenv', join(kvlapply(env, function(n, v)join(c(n, v, '='))), '+++'),
 		'--setenvsep=+++'
 	), ' ');
 	Logs('QsubEnvOptions: %{qsubOptions}s', level = 6);
