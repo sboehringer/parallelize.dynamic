@@ -126,8 +126,8 @@ sub submitCommand { my ($cmd, $o) = @_;
 	#Stdout:
 	#Your job 710 ("job_echo34686.sh") has been submitted
 	my ($jid) = ($r->{output} =~ m{Your job (\d+)}so);
-	writeFile($o->{jid}, "$jid\n", { append => 'YES', doMakePath => 'YES' }) if (defined($o->{jid}));
-	writeFile($o->{jidReplace}, "$jid\n", { doMakePath => 'YES'} ) if (defined($o->{jidReplace}));
+	writeFile($o->{jid}, "$jid\n", { append => 'YES', doMakePath => 1 }) if (defined($o->{jid}));
+	writeFile($o->{jidReplace}, "$jid\n", { doMakePath => 1 } ) if (defined($o->{jidReplace}));
 }
 
 #main $#ARGV @ARGV %ENV
