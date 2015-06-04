@@ -467,8 +467,9 @@ setMethod('initScheduling', 'ParallelizeBackendOGS', function(self, call_) {
 	parallelizeOfflineStep(call_, Lapply_config = Lapply_getConfig());
 }
 
-shellEnvString = function(env, sep = '+++') {
-	join(kvlapply(env, function(k, v)join(c(trimString(k), trimString(v)), '=')), sep)
+shellEnvString = function(env, sep = '+++', prefix = '') {
+	join(kvlapply(env, function(k, v)
+		Sprintf('%{prefix}s%{K}s=%{V}s', K = trimString(k), V = trimString(v))), sep)
 }
 qsubEnvOptions = function(env) {
 	qsubOptions = join(c('--setenv', shellEnvString(env, '+++'), '--setenvsep=+++'), ' ');
@@ -492,10 +493,10 @@ remoteEnvSetup = function(remoteDir) {
 	sp = splitPath(remoteDir, ssh = T);
 	env = remoteEnvAdd(userhost = sp$userhost);
 	remoteEnvProfile = Sprintf('%{remoteDir}s/remoteProfile.sh');
-	envAsString = shellEnvString(env, "\n");
+	envAsString = shellEnvString(env, "\n", prefix = 'export ');
 	writeFile(remoteEnvProfile, envAsString, ssh = T);
 	Logs("Remote env: %{envAsString}s", level = 6);
-	splitPath(remoteEnvProfile)$path
+	splitPath(remoteEnvProfile, ssh = T)$path
 }
 
 freezeCallOGS = function(self, ..f, ...,
