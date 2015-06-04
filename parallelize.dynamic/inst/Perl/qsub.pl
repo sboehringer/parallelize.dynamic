@@ -92,7 +92,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	# don't delete
 	my $tf = tempFileName($o->{tmpPrefix}. "/job_$cmdname", '.sh', undef, 1);
 	#my $env = ''; #join("\n", map { "$_=$ENV{$_}" } keys %ENV);
-	my @env = map { "$_=$ENV{$_}" } split(/\s*,\s*/, $o->{exports});
+	my @env = map { "$_=$ENV{$_}" } grep { !/$\s*^/ } split(/\s*,\s*/, $o->{exports});
 	my $setenv = join("\n", split(/\Q$o->{setenvsep}\E/, $o->{setenv}));
 	my $mergeDict = makeHash([map { 'options_'. uc($_) } keys %$o], [values %$o]);
 	my %opts = (%{makeHash([keys %Options], [map { mergeDictToString($mergeDict, $_)} values %Options])});
@@ -114,7 +114,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	$script = mergeDictToString({
 		'QSUB_OUT' => $o->{outputDir},
 		'OGS_OPTIONS' => join("\n", @options),
-		'OGS_EXPORTS' => join("\n", (map { "export $_" } @env, $setenv)),
+		'OGS_EXPORTS' => join("\n", ((map { "export $_" } @env), $setenv)),
 		'CMD' => $cmd
 	}, $script, { sortKeys => 'YES' });
 
@@ -152,7 +152,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	}
 	my $result = !$optionsPresent? 1
 	: GetOptionsStandard($o,
-		'help', 'jid=s', 'jidReplace=s', 'exports=s',
+		'help', 'jid=s', 'jidReplace=s', 'exports:s',
 		'waitForJids=s', 'outputDir=s', 'unquote!', 'queue=s', 'priority=i', 'cmdFromFile=s', 'checkpointing',
 		'memory=s', 'Ncpu=i', 'setenv=s', 'setenvsep=s'
 	);
