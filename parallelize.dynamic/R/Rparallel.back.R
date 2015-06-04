@@ -475,7 +475,7 @@ qsubEnvOptions = function(env) {
 	Logs('QsubEnvOptions: %{qsubOptions}s', level = 6);
 	qsubOptions
 }
-remoteEnv = function(vars = list(
+remoteEnvAdd = function(vars = list(
 	PATH = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -",
 	PERL5LIB = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -"),
 	userhost = 'localhost') {
@@ -791,7 +791,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	# clear jids
 	File.remove(.OGSremoteFile(self, 'jids'));
 	# <p> remote environment: environment variables
-	env = remoteEnv(userhost = sp$userhost);
+	env = remoteEnvAdd(userhost = sp$userhost);
 	Logs("Remote env: PATH=%{path}s+++PERL5LIB=%{lib}", path = env$PATH, lib = env$PERL5LIB, level = 6);
 
 	# <p> create remote wrappers
