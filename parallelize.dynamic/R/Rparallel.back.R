@@ -495,7 +495,7 @@ remoteEnvSetup = function(remotePath) {
 	envAsString = shellEnvString(env, "\n");
 	writeFile(remoteEnvProfile, envAsString);
 	Logs("Remote env: %{envAsString}s", level = 6);
-	remoteEnvProfile
+	splitPath(remoteEnvProfile)$path
 }
 
 freezeCallOGS = function(self, ..f, ...,
