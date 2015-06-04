@@ -467,12 +467,12 @@ setMethod('initScheduling', 'ParallelizeBackendOGS', function(self, call_) {
 	parallelizeOfflineStep(call_, Lapply_config = Lapply_getConfig());
 }
 
+shellEnvString = function(env, sep = '+++') {
+	join(kvlapply(env, function(k, v)join(c(trimString(k), trimString(v)), '=')), sep)
+}
 qsubEnvOptions = function(env) {
-	qsubOptions = join(c(
-		'--setenv', join(kvlapply(env, function(k, v)join(c(trimString(k), trimString(v)), '=')), '+++'),
-		'--setenvsep=+++'
-	), ' ');
-	Logs('QsubEnvOptions: %{qsubOptions}s', level = 6);
+	qsubOptions = join(c('--setenv', shellEnvString(env, '+++'), '--setenvsep=+++'), ' ');
+	#Logs('QsubEnvOptions: %{qsubOptions}s', level = 6);
 	qsubOptions
 }
 remoteEnvAdd = function(vars = list(
@@ -487,6 +487,15 @@ remoteEnvAdd = function(vars = list(
 		Sprintf('%{valueNew}s:%{valueOld}s')
 	});
 	env
+}
+remoteEnvSetup = function(remotePath) {
+	sp = splitPath(remotePath);
+	env = remoteEnvAdd(userhost = sp$userhost);
+	remoteEnvProfile = Sprintf('%{remotePath}s/remoteProfile.sh');
+	envAsString = shellEnvString(env, "\n");
+	writeFile(remoteEnvProfile, envAsString);
+	Logs("Remote env: %{envAsString}s", level = 6);
+	remoteEnvProfile
 }
 
 freezeCallOGS = function(self, ..f, ...,
@@ -791,8 +800,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	# clear jids
 	File.remove(.OGSremoteFile(self, 'jids'));
 	# <p> remote environment: environment variables
-	env = remoteEnvAdd(userhost = sp$userhost);
-	Logs("Remote env: PATH=%{path}s+++PERL5LIB=%{lib}", path = env$PATH, lib = env$PERL5LIB, level = 6);
+	remoteProfile = remoteEnvSetup(remoteDir);
 
 	# <p> create remote wrappers
 	parallelize_remote = function(call_, Lapply_config) {
@@ -821,8 +829,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
-		qsubOptionsAdd = qsubEnvOptions(env),
-		ssh_source_file = self@config$ssh_source_file
+		ssh_source_file = c(self@config$ssh_source_file, remoteProfile)
 	);
 	# end with
 	});
