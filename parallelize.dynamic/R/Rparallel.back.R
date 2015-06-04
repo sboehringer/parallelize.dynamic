@@ -437,6 +437,12 @@ setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) 
 	if (substr(perlLibOld, 1, nchar(perlLibPrefix)) != perlLibPrefix)
 		Sys.setenv('PERL5LIB' = sprintf('%s:%s', perlLibPrefix, perlLibOld));
 
+	# <p> remote environment
+	r = System("echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -",
+		return.output = T)$output;
+	Logs("Remote path: %{r}s", 6);
+	.Object@config$remoteEnv = list(PATH = r);
+
 	# <p> jid state
 	.Object@jids$setLogPath(parallelizationStatePath(.Object, 'jids'));
 	.Object
@@ -477,9 +483,14 @@ freezeCallOGS = function(self, ..f, ...,
 		qs(qsubPath),
 		if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
 	);
+	if (length(.Object@config$remoteEnv) > 0)
+		qsubOptions = join(c(
+			qsubOptions,
+			'--setenv', join(kvlapply(n, v), join(c(k, v, '=')), '+++'),
+			'--setenvsep=+++'
+		), ' ');
 	qsubOptions = mergeDictToString(list(`QSUB_MEMORY` = qsubMemory), qsubOptions);
-	Log(con('PATH: ', Sys.getenv('PATH')), 5)
-	Log(con('PERL5LIB: ', Sys.getenv('PERL5LIB')), 5)
+	Logs("qsubOptions: %{qsubOptions}s", 5)
 	r = System(wrap, 5, patterns = patterns, qsubOptions = qsubOptions, cwd = cwd,
 		ssh_host = ssh_host, ssh_source_file = ssh_source_file, return.cmd = T);
 	r

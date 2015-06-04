@@ -7,7 +7,7 @@ require	Exporter;
 
 @ISA		= qw(Exporter);
 
-@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround &changeSet &syncSets);
+@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &multiply &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &firstTrue &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround &changeSet &syncSets &hashPrune);
 
 use TempFileNames;
 
@@ -91,6 +91,10 @@ sub firstDef { my @args = @_;
 	foreach $a (@args) { return $a if (defined($a)); }
 	return undef;
 }
+sub firstTrue { my @args = @_;
+	foreach $a (@args) { return $a if ($a); }
+	return undef;
+}
 sub indexOf { my ($arr, $obj, $doNumCmp) = @_;
 	my $i = 0;
 	foreach $e (@{$arr}) {
@@ -145,6 +149,12 @@ sub	sum { my ($arr) = @_;
 	}
 	return $sum;
 }
+# assume call as multiply(@a, @b)
+sub multiply { my (@a) = @_;
+	my $N = int(@a)/2;
+	return map { $a[$_] * $a[$_ + $N] } 0 .. ($N -1);
+}
+
 #	round by biggest decimal places
 sub scaleSetTo { my ($arr, $count) = @_;
 	do {
@@ -310,6 +320,12 @@ sub mergeDict2dict { my($hashS, $hashD)=@_;
 	{	$hashD->{$key}=$hashS->{$key};
 	}
 	return $hashD;
+}
+
+sub hashPrune { my (%h) = @_;
+#	<!> only work in >= 5.20
+#	return %h{grep { $h{$_} ne ''} keys %h};
+	return map { ($_, $h{$_}) } grep { $h{$_} ne ''} keys %h;
 }
 
 #	<!> not cycle proof
@@ -698,6 +714,7 @@ sub modround { my ($v, %a) = @_;
 	return modfloor($v + $a{step}/2, %a);
 }
 
+
 #
 #	<p> set syncing
 #
@@ -752,8 +769,8 @@ sub applyChangeSet { my ($cs) = @_;
 
 sub syncSets { my ($setLeaf, $setRef, %c) = @_;
 	%c = ( idKey => 'id', %c );
-	my $l = makeHash( [ map { $_->{$c{idKey}} } @$set ],  $setLeaf );
-	my $r = makeHash( [ map { $_->{$c{idKey}} } @$set ],  $setRef );
+	my $l = makeHash( [ map { $_->{$c{idKey}} } @$setLeaf ],  $setLeaf );
+	my $r = makeHash( [ map { $_->{$c{idKey}} } @$setRef ],  $setRef );
 	my $ids = [keys %$l];
 	my $idsRef = [keys %$r];
 
@@ -764,6 +781,7 @@ sub syncSets { my ($setLeaf, $setRef, %c) = @_;
 	my $update = intersection($ids, $idsRef);
 	my @uref = grep { $l->{$_}{date} > $r->{$_}{timestamp} } @$update;
 	my @uleaf = grep { $l->{$_}{date} < $r->{$_}{timestamp} } @$update;
+	return { new => [@new], del => [@del] };
 }
 
 1;

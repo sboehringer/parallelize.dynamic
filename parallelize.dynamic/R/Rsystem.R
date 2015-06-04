@@ -419,7 +419,8 @@ Log.setLevel(4);	# default
 	# <i> stdout/stderr handling
 	ssh = list(pre = function(cmd, spec, ssh_host = 'localhost', ssh_source_file = NULL, ...) {
 		if (!is.null(ssh_source_file)) {
-			cmd = sprintf('source %s ; %s', qs(ssh_source_file), cmd);
+			cmd = sprintf('%s ; %s',
+				join(paste('source', qs(ssh_source_file), sep = ' '), ' ; '), cmd);
 		}
 		ncmd = sprintf('ssh %s %s', ssh_host, qs(cmd));
 		spec = list(cmd = ncmd);

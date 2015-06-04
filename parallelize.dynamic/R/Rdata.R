@@ -933,6 +933,12 @@ ilapply = function(l, f, ...) {
 	if (!is.null(names(l))) names(r) = names(l);
 	r
 }
+kvlapply = function(l, f, ...) {
+	ns = names(l);
+	r = lapply(1:length(l), function(i)f(ns[i], l[[i]], ...));
+	names(r) = ns;
+	r
+}
 
 # USE.NAMES logic reversed for sapply
 sapplyn = function(l, f, ...)sapply(l, f, ..., USE.NAMES = F);
