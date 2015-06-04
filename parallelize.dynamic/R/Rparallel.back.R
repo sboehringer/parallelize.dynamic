@@ -477,8 +477,8 @@ qsubEnvOptions = function(env) {
 	qsubOptions
 }
 remoteEnvAdd = function(vars = list(
-	PATH = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -",
-	PERL5LIB = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -"),
+	PATH = "echo `echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -`/inst/Perl",
+	PERL5LIB = "echo `echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -`/inst/Perl"),
 	userhost = 'localhost') {
 	env = kvlapply(vars, function(name, cmd) {
 		valueNew = System(cmd,
