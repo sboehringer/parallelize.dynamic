@@ -472,7 +472,8 @@ qsubEnvOptions = function(env) {
 		'--setenv', join(kvlapply(n, v), join(c(k, v, '=')), '+++'),
 		'--setenvsep=+++'
 	), ' ');
-	qsubEnvOptions
+	Logs('QsubEnvOptions: %{qsubOptions}s', level = 6);
+	qsubOptions
 }
 remoteEnv = function(vars = list(
 	PATH = "echo 'cat(system.file(package = \"parallelize.dynamic\"))' | Rscript -",
@@ -790,9 +791,8 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	# clear jids
 	File.remove(.OGSremoteFile(self, 'jids'));
 	# <p> remote environment: environment variables
-	remoteEnv = remoteEnv(userhost = sp$userhost);
-	Logs("Remote env: PATH=%{path}s+++PERL5LIB=%{lib}",
-		path = remoteEnv$PATH, lib = remoteEnv$PERL5LIB, level = 6);
+	env = remoteEnv(userhost = sp$userhost);
+	Logs("Remote env: PATH=%{path}s+++PERL5LIB=%{lib}", path = env$PATH, lib = env$PERL5LIB, level = 6);
 
 	# <p> create remote wrappers
 	parallelize_remote = function(call_, Lapply_config) {
@@ -821,7 +821,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
-		qsubOptions = qsubEnvOptions(remoteEnv),
+		qsubOptions = qsubEnvOptions(env),
 		ssh_source_file = self@config$ssh_source_file
 	);
 	# end with
