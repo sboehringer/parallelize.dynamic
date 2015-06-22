@@ -691,7 +691,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 		if (declare_reset) c() else configPre$sourceFiles,
 		Lapply_config$sourceFiles, Lapply_config$backends[[backend]]$sourceFiles, sourceFiles
 	);
-	libraries = c('parallelize.dynamic',
+	libraries = c(
 		if (declare_reset) c() else configPre$libraries,
 		libraries
 	);
