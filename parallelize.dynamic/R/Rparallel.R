@@ -34,7 +34,7 @@ library('tools');
 #' submitted
 #' @keywords package
 
-#' @export Apply Sapply Lapply parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable tempcodefile Log Log.setLevel Log.level readFile
+#' @export Apply Sapply Lapply parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile Log Log.setLevel Log.level readFile
 #' @exportMethod finalizeParallelization
 #' @exportMethod getResult
 #' @exportMethod initialize
@@ -691,10 +691,10 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 		if (declare_reset) c() else configPre$sourceFiles,
 		Lapply_config$sourceFiles, Lapply_config$backends[[backend]]$sourceFiles, sourceFiles
 	);
-	libraries = c(
+	libraries = unique(c('parallelize.dynamic',
 		if (declare_reset) c() else configPre$libraries,
 		libraries
-	);
+	));
 	copyFiles = if (declare_reset) c() else configPre$copyFiles;
 	backendClass = firstDef(Lapply_config$backends[[backend]]$backend, backend);
 	backendConfig = merge.lists(

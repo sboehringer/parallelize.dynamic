@@ -551,7 +551,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 	c = Lapply_getConfig();
 	freeze_control = list(
 		sourceFiles = self@config$sourceFiles,
-		libraries = self@config$libraries,
+		libraries = unique(c('parallelize.dynamic', self@config$libraries)),
 		objects = parallelizationStateObjects,
 		logLevel = Log.level()
 	);
@@ -819,7 +819,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
-		ssh_source_file = c(self@config$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=NONE'
+		ssh_source_file = c(self@config$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=-'
 #		ssh_source_file = c(self@config$ssh_source_file, remoteProfile)
 	);
 	# end with

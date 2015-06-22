@@ -40,9 +40,9 @@ my $helpText = <<HELP_TEXT;
 
 	# environment
 	# do not use default PATH export
-	qsub.pl --exports NONE
+	qsub.pl --exports -
 	# exactly export PERL5LIB
-	qsub.pl --exports NONE,PERL5LIB
+	qsub.pl --exports -,PERL5LIB
 
 	# job dependencies
 	# Append the job id of the submitted job to file /tmp/myJobIds
@@ -101,7 +101,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 
 	# <p> prepare environment
 	my @envKeys = split(/\s*,\s*/, $o->{exports});
-	my @envReset = which_indeces(['NONE'], [@envKeys]);
+	my @envReset = which_indeces(['-'], [@envKeys]);
 	@env = @envKeys[($envReset[0] + 1) .. $#envKeys] if (defined($envReset[0]));
 	my @env = map { "$_=$ENV{$_}" } grep { !/$\s*^/ } @envKeys;
 	my $setenv = join("\n", split(/\Q$o->{setenvsep}\E/, $o->{setenv}));
