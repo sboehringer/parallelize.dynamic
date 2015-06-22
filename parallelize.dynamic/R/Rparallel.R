@@ -755,9 +755,9 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, reset = TRUE) {
 	Lapply_config = Lapply_createConfig();
 	# <p> config
-	sourceFiles = c(if (!reset) Lapply_config$sourceFiles else c(), source);
-	libraries = c(if (!reset) Lapply_config$libraries else c(), packages);
-	copyFiles = c(if (!reset) Lapply_config$copyFiles else c(), copy);
+	sourceFiles = unique(c(if (!reset) Lapply_config$sourceFiles else c(), source));
+	libraries = unique(c(if (!reset) Lapply_config$libraries else c(), packages));
+	copyFiles = unique(c(if (!reset) Lapply_config$copyFiles else c(), copy));
 	# <!><i> copyFiles
 
 	Lapply_setConfig(merge.lists(
@@ -1167,11 +1167,11 @@ parallelizeOfflineStep = function(call_, Lapply_config) with(Lapply_config, {
 	r
 })
 
-parallelize_dummy = function(.f, ..., Lapply_config = NULL) {
+parallelize_dummy = function(.f, ..., Lapply_config = NULL, envir__ = NULL) {
 	.f(...)
 }
-parallelize_call_dummy = function(.call, Lapply_config = NULL) {
-	base:::eval(.call, envir = parent.frame(n = 2))
+parallelize_call_dummy = function(.call, Lapply_config = NULL, envir__ = parent.frame(n = 2)) {
+	base:::eval(.call, envir = envir__)
 }
 
 parallelize_internal = function(call_, Lapply_local = rget('Lapply_local', default = F),
@@ -1310,14 +1310,17 @@ parallelize_internal = function(call_, Lapply_local = rget('Lapply_local', defau
 #'   )));
 #' 
 parallelize = parallelize_backup = function(.f, ..., Lapply_local = rget('Lapply_local', default = FALSE),
-	parallelize_wait = TRUE) {
-	call_ = list(fct = .f, args = list(...), envir = parent.frame(), name = as.character(sys.call()[[2]]));
+	parallelize_wait = TRUE, envir__ = parent.frame()) {
+	envir_evaled = envir__;
+	call_ = list(fct = .f, args = list(...), envir = envir_evaled, name = as.character(sys.call()[[2]]));
 	parallelize_internal(call_, Lapply_local = Lapply_local, parallelize_wait = parallelize_wait);
 }
 
 
-parallelize_call = parallelize_call_backup = function(.call, ..., parallelize_wait = TRUE) {
-	call_  = encapsulateCall(sys.call()[[2]], ..., envir__ = parent.frame());
+parallelize_call = parallelize_call_backup = function(.call, ...,
+	parallelize_wait = TRUE, envir__ = parent.frame()) {
+	envir_evaled = envir__;
+	call_  = encapsulateCall(sys.call()[[2]], ..., envir__ = envir_evaled);
 	parallelize_internal(call_, ..., parallelize_wait = parallelize_wait);
 }
 

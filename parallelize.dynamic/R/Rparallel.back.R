@@ -416,18 +416,6 @@ setClass('ParallelizeBackendOGS',
 .ParallelizeBackendOGSDefaultConfig = list(
 	qsubOptions = '--queue all.q'
 );
-setupLocalEnv = function(vars = list(
-	PATH = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")),
-	PERL5LIB = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")))) {
-	kvlapply(vars, function(name, v) {
-		valueNew = v();
-		valueOld = Sys.getenv(name);
-		# avoid duplications on reruns
-		if (substr(valueOld, 1, nchar(valueNew)) != valueNew)
-			Sys.setenv(Sprintf('%{valueNew}s:%{valueOld}s'))
-	});
-	NULL
-}
 
 setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) {
 	# <p> super-class
@@ -794,7 +782,9 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	ignore.shell = Log.level() < 5;
 	Dir.create(remoteDir, recursive = T, ignore.shell = ignore.shell);
 	# either copy source files or explicitely spcified copyFiles (important for dirs);
-	copyFiles = if (length(self@config$copyFiles) > 0) union(copyFiles, sourceFiles) else unique(sourceFiles);
+	if (is.null(self@config$sourceFiles)) sourceFiles = c();
+	if (is.null(self@config$copyFiles)) copyFiles = c();
+	copyFiles =  unique(union(copyFiles, sourceFiles));
 	Log(sprintf('Copying files: %s', join(copyFiles, ', ')), 5);
 	File.copy(copyFiles, remoteDir, ignore.shell = ignore.shell, recursive = T, symbolicLinkIfLocal = T);
 	# clear jids
@@ -829,7 +819,8 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
-		ssh_source_file = c(self@config$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports= '
+		ssh_source_file = c(self@config$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=NONE'
+#		ssh_source_file = c(self@config$ssh_source_file, remoteProfile)
 	);
 	# end with
 	});

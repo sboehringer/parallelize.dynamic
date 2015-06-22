@@ -280,7 +280,7 @@ callEvalArgs = function(call_, env_eval = FALSE) {
 	# <p> evaluate args
 	if (length(call_$args)) {
 		args = call_$args;
-		callArgs = lapply(1:length(args), function(i)eval(args[[i]], envir = call_$envir__));
+		callArgs = lapply(1:length(args), function(i)eval(args[[i]], envir = call_$envir));
 		# <i> use match.call instead
 		names(callArgs) = setdiff(names(call_$args), '...');
 		call_$args = callArgs;
@@ -337,7 +337,7 @@ encapsulateCall = function(.call, ..., envir__ = environment(.call), do_evaluate
 		nlapply(callm, function(e)eval(callm[[e]], envir = envir__))
 	} else nlapply(callm, function(e)callm[[e]])
 	# unbound variables in body fct
-	unbound_vars = 
+	#unbound_vars = 
 
 	call_ = list(
 		fct = fct,

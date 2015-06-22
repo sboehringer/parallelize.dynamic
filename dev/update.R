@@ -11,11 +11,19 @@ if (1) {
 if (1) {
 	require('roxygen2');
 	require('devtools');
-	roxygenize('../parallelize.dynamic', roclets = 'namespace');
-	update_collate('../parallelize.dynamic');
+	#roxygenize('../parallelize.dynamic', roclets = 'namespace');
+	#update_collate('../parallelize.dynamic');
 	#system('git commit -a -m "documentation update" ; git push');
 	document('../parallelize.dynamic');
-	install_local('../parallelize.dynamic');
+
+	# <p> currently broken (22.6.2015)
+	#install_local('../parallelize.dynamic');
+	# <p> current workaround for broken install_local (22.6.2015)
+	source('../parallelize.dynamic/R/Rdata.R');
+	source('../parallelize.dynamic/R/Rsystem.R');
+	pkgPath = Sprintf('%{dir}Q/parallelize.dynamic.tgz', dir = tempdir());
+	System(Sprintf('tar czf %{pkgPath}Q ../parallelize.dynamic'), 2);
+	install_local(pkgPath);
 }
 
 if (0) {

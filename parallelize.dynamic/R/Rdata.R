@@ -430,7 +430,7 @@ Sprintf = sprintd = function(fmt, ..., sprintf_cartesian = FALSE, envir = parent
 	dictDf = Df_(dictDf, as_character = unique(keys[types == 's']));
 	
 	# <p> conversion <i>: new function
-	colsQ = typesRaw == 'Q';
+	colsQ = keys[typesRaw == 'Q'];
 	dictDf[, colsQ] = apply(dictDf[, colsQ, drop = F], 2, qs);
 
 	s = sapply(1:nrow(dictDf), function(i) {
@@ -880,7 +880,7 @@ list.kpr = function(l, keyPath, do.unlist = F, template = NULL,
 # <!> interface change: unlist -> do.unlist (Wed Sep 29 18:16:05 2010)
 # test: test existance instead of returning value
 list.kp = function(l, keyPath, do.unlist = F, template = NULL, null2na = F, test = F) {
-	r = list.kpr(l, sprintf("*$%s", keyPath), do.unlist = do.unlist, template, null2na, test = test);
+	r = list.kpr(l, sprintf("*$%s", keyPath), do.unlist = do.unlist, template, null2na = null2na, test = test);
 	r
 }
 
@@ -1483,7 +1483,7 @@ Df_ = function(df0, headerMap = NULL, names = NULL, min_ = NULL,
 		# <N> does not work
 		#dfn = apply(r[, as_factor, drop = F], 2, function(col)as.factor(col));
 		#r[, as_factor] = dfn;
-		for (f in as_factor)r[[f]] = as.factor(r[[f]]);
+		for (f in as_factor) r[, f] = as.factor(r[[f]]);
 	}
 	#
 	#	<p> transformations

@@ -26,3 +26,7 @@ parallelize_setEnable = function(state) {
 #
 
 #parallelize_setEnable(F);
+
+setupLocalEnv = function(vars = list()) {
+	NULL
+}

@@ -151,6 +151,7 @@ File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel =
 
 File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, ignore.shell = T,
 	symbolicLinkIfLocal = T) {
+	if (is.null(from)) return(NULL);
 	pairs = cbind(from, to);
 	r = apply(pairs, 1, function(r) {
 		File.copy_raw(r[1], r[2], ...,

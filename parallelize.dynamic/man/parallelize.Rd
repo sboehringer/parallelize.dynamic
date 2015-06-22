@@ -6,7 +6,7 @@
 \title{Subject a function to dynamic parallelization}
 \usage{
 parallelize(.f, ..., Lapply_local = rget("Lapply_local", default = FALSE),
-  parallelize_wait = TRUE)
+  parallelize_wait = TRUE, envir__ = parent.frame())
 }
 \arguments{
 \item{.f}{Function to be parallelized given as a function object.}

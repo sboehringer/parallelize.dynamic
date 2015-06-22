@@ -35,3 +35,16 @@ parallelize_setEnable = function(state) {
 	Log(sourceFile, 1);
 	source(sourceFile);
 }
+
+setupLocalEnv = function(vars = list(
+	PATH = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")),
+	PERL5LIB = function()sprintf('%s/Perl', system.file(package = "parallelize.dynamic")))) {
+	kvlapply(vars, function(name, v) {
+		valueNew = v();
+		valueOld = Sys.getenv(name);
+		# avoid duplications on reruns
+		if (substr(valueOld, 1, nchar(valueNew)) != valueNew)
+			Sys.setenv(Sprintf('%{valueNew}s:%{valueOld}s'))
+	});
+	NULL
+}

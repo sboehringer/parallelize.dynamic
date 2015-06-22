@@ -38,6 +38,12 @@ my $helpText = <<HELP_TEXT;
 	#	use --unquote to enforce unquoting for multiple arguments
 	qsub.pl --unquote -- 'echo hello world > /tmp/redirect'
 
+	# environment
+	# do not use default PATH export
+	qsub.pl --exports NONE
+	# exactly export PERL5LIB
+	qsub.pl --exports NONE,PERL5LIB
+
 	# job dependencies
 	# Append the job id of the submitted job to file /tmp/myJobIds
 	qsub.pl --jid /tmp/myJobIds -- echo hello world --echoOption
@@ -92,8 +98,15 @@ sub submitCommand { my ($cmd, $o) = @_;
 	# don't delete
 	my $tf = tempFileName($o->{tmpPrefix}. "/job_$cmdname", '.sh', undef, 1);
 	#my $env = ''; #join("\n", map { "$_=$ENV{$_}" } keys %ENV);
-	my @env = map { "$_=$ENV{$_}" } grep { !/$\s*^/ } split(/\s*,\s*/, $o->{exports});
+
+	# <p> prepare environment
+	my @envKeys = split(/\s*,\s*/, $o->{exports});
+	my @envReset = which_indeces(['NONE'], [@envKeys]);
+	@env = @envKeys[($envReset[0] + 1) .. $#envKeys] if (defined($envReset[0]));
+	my @env = map { "$_=$ENV{$_}" } grep { !/$\s*^/ } @envKeys;
 	my $setenv = join("\n", split(/\Q$o->{setenvsep}\E/, $o->{setenv}));
+
+	# <p> generic options
 	my $mergeDict = makeHash([map { 'options_'. uc($_) } keys %$o], [values %$o]);
 	my %opts = (%{makeHash([keys %Options], [map { mergeDictToString($mergeDict, $_)} values %Options])});
 	# add fixed options based on
