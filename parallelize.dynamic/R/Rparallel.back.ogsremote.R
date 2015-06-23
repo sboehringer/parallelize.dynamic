@@ -12,7 +12,7 @@
 
 #' Class \code{"ParallelizeBackendOGSremote"}
 #' 
-#' Backend class supporting Open Grid Scheduler support on remote machines
+#' Backend class supporting Open Grid Scheduler use from remote machines
 #' 
 #' 
 #' @name ParallelizeBackendOGSremote-class
