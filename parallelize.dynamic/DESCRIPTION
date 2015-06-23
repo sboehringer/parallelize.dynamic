@@ -2,7 +2,7 @@ Package: parallelize.dynamic
 Type: Package
 Title: Automate parallelization of function calls by means of dynamic code
     analysis
-Version: 0.9-1
+Version: 1.0
 Date: 2013-01-24
 Author: Stefan Boehringer  <r-packages@s-boehringer.org>
 Maintainer: Stefan Boehringer <r-packages@s-boehringer.org>
