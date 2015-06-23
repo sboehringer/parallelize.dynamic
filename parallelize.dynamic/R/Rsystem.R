@@ -1285,3 +1285,14 @@ print2pdf = function(elements, file) {
 	sink();
 	System(Sprintf('a2ps %{tf}s --columns 1 --portrait --o - | ps2pdf - - > %{output}s', output = qs(file)));
 }
+
+#
+#	<p> workarounds
+#
+
+# fix broken install from dir: create tarball -> install_local
+Install_local = function(path) {
+	pkgPath = Sprintf('%{dir}Q/%{base}Q.tgz', dir = tempdir(), base = splitPath(path)$base);
+	System(Sprintf('tar czf %{pkgPath}Q %{path}Q'), 2);
+	install_local(pkgPath);
+}

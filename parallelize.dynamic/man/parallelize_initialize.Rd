@@ -9,7 +9,8 @@ parallelize_initialize(Lapply_config = get("Parallelize_config__"),
   stateClass = "LapplyState", backend = "local",
   freezerClass = "LapplyFreezer", ..., force_rerun = FALSE,
   sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
-  copy_environments = FALSE, declare_reset = FALSE)
+  copy_environments = FALSE, declare_reset = FALSE,
+  rngSeedCapsules = "LapplyRNGseedCapsule")
 }
 \arguments{
 \item{Lapply_config}{A list describing possible configurations of the

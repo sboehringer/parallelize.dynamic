@@ -21,9 +21,7 @@ if (1) {
 	# <p> current workaround for broken install_local (22.6.2015)
 	source('../parallelize.dynamic/R/Rdata.R');
 	source('../parallelize.dynamic/R/Rsystem.R');
-	pkgPath = Sprintf('%{dir}Q/parallelize.dynamic.tgz', dir = tempdir());
-	System(Sprintf('tar czf %{pkgPath}Q ../parallelize.dynamic'), 2);
-	install_local(pkgPath);
+	Install_local('../parallelize.dynamic');
 }
 
 if (0) {

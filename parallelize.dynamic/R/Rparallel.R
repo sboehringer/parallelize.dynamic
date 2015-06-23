@@ -55,6 +55,7 @@ library('tools');
 #' @exportClass ParallelizeBackendLocal
 #' @exportClass ParallelizeBackendOGSremote
 #' @exportClass ParallelizeBackendSnow
+#' @exportClass LapplyRNGseedCapsule
 
 #
 #	<p> Lapply state reference classes
@@ -201,6 +202,42 @@ LapplyRunStateClass = setRefClass('LapplyRunState',
 	)
 );
 LapplyRunStateClass$accessors(names(LapplyRunStateClass$fields()));
+
+#
+#	<p> random number generation related classes
+#
+
+assignRandomSeed = function(v).Random.seed <<- v
+LapplyRNGseedCapsuleClass = setRefClass('LapplyRNGseedCapsule',
+	fields = list(
+		type = 'character',
+		seed = 'integer'
+	),
+	methods = list(
+	#
+	#	<p> methods
+	#
+	initialize = function(...) {
+		.self$initFields(...);
+		.self
+	},
+	# <!>
+	# use .RandomSeed interface
+	#
+	store = function() {
+		seed <<- get('.Random.seed', envir = .GlobalEnv);
+		type <<- RNGkind();
+		NULL
+	},
+	restore = function() {
+		assignRandomSeed(c(NULL, seed))
+		NULL
+	}
+	#	</p> methods
+	#
+	)
+);
+LapplyRNGseedCapsuleClass$accessors(names(LapplyRNGseedCapsuleClass$fields()));
 
 #
 #	<p> freezer classes
@@ -676,7 +713,7 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Parallelize_config__'), 
 	stateClass = 'LapplyState', backend = 'local', freezerClass = 'LapplyFreezer', ...,
 	force_rerun = FALSE, sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
-	copy_environments = FALSE, declare_reset = FALSE) {
+	copy_environments = FALSE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule') {
 	# <p> check for turning off
 	if (backend == 'off') {
 		parallelize_setEnable(F);
@@ -710,7 +747,8 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 		Lapply_config,
 		list(backend = backend, backendConfig = backendConfig, parallel_count = parallel_count,
 			sourceFiles = sourceFiles, libraries = libraries,
-			copy_environments = copy_environments)
+			copy_environments = copy_environments,
+			seedCapsules = rngSeedCapsules)
 	);
 	Lapply_setConfig(Lapply_config);
 	# <p> backend
@@ -802,6 +840,22 @@ Lapply_createConfig = function() {
 	if (!exists('Lapply_globalConfig__', envir = parallelize_env))
 		Lapply_setConfig(Lapply_config_default);
 	Lapply_getConfig()
+}
+Lapply_storeSeeds = function() {
+	# make work standalone and from package
+	getConfig = if (exists('Lapply_getConfig')) Lapply_getConfig else
+		parallelize.dynamic:::Lapply_getConfig;
+	o = getConfig();
+	capsules = lapply(o$seedCapsules, function(capsule) {
+		cap = new(capsule);
+		cap$store();
+		cap
+	})
+	assign('seedCapsules', capsules, envir = parallelize_env);
+}
+Lapply_restoreSeeds = function() {
+	capsules = get('seedCapsules', envir = parallelize_env);
+	lapply(capsules, function(capsule)capsule$restore());
 }
 
 #
@@ -938,6 +992,7 @@ Lapply_probe = function(call_, Lapply_config) with(Lapply_config,  {
 	Lapply_executionState__$addSentinel();
 	r = NULL;
 	for (i in depths) {
+		Lapply_restoreSeeds();
 		# reset state: first rampUp, cursor to beginning
 		Lapply_executionState__$resetCursor();
 		Lapply_initializeState('LapplyProbeState', max_depth = i);
@@ -1134,12 +1189,14 @@ Apply_backup = function(X, MARGIN, FUN, ...) {
 }
 
 parallelizeStep = function(call_, Lapply_config) {
+	Lapply_storeSeeds();
 	# probe parallelism
 	r = Lapply_probe(call_, Lapply_config = Lapply_config);
 	# no parallelization was possible
 	if (all(class(r) != 'Lapply_error')) return(r);
 	# run computation for this rampUp sequence
 	Lapply__ = get('Lapply__', envir = parallelize_env);
+	Lapply_restoreSeeds();
 	Lapply_run(call_, Lapply_depth = Lapply__$max_depth, Lapply_config = Lapply_config);
 	Lapply_error();
 }
