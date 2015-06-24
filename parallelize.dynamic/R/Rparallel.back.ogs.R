@@ -10,6 +10,9 @@
 #	ParallelizeBackendOGS S4 class
 #
 
+# steps: jid associated with calls to parallelizationStep
+# chunks: jids associated with *Apply calls
+# sometimes steps is one more than chunks (during computations)
 .ParallelizeBackendOGSstateClass = setRefClass('ParallelizeBackendOGSstate',
 	fields = list( steps = 'list', chunks = 'list', logPath = 'character' ),
 	methods = list(
@@ -265,15 +268,19 @@ setMethod('finalizeParallelization', 'ParallelizeBackendOGS', function(self, r) 
 	r
 });
 
-.progressStat = function(jidsTasks, i, jidsRunning) {
-	jidsTask = if (length(jidsTasks) < i) NULL else jidsTasks[[i]];
-	jidsPending = intersect(jidsTask, jidsRunning);
-	N = length(jidsTask);
+progressStatJids = function(jids, jidsRunning) {
+	jidsPending = intersect(jids, jidsRunning);
+	N = length(jids);
 	Npending = length(jidsPending);
 	r = list(N = N, Npending = Npending, Ncomplete = N - Npending, complete = 1 - Npending / N);
 	r
 }
-.stdProgressFormat = list(title = '%-30s', N = '%4d', progress = '%25s', Perc = '%3.0f%%');
+.progressStat = function(jidsTasks, i, jidsRunning) {
+	jidsTask = if (nif(length(jidsTasks) < i)) NULL else jidsTasks[[i]];
+	progressStatJids(jidsTask, jidsRunning)
+}
+
+.stdProgressFormat = list(title = '%-20s', N = '%4d', progress = '%25s', Perc = '%3.0f%%');
 progressString = function(stat, title = 'Task', format = .stdProgressFormat, NanString = '----') {
 	format = merge.lists(.stdProgressFormat, format);
 	L = nchar(sprintf(format$progress, '-'));	# length progress bar
@@ -290,13 +297,13 @@ progressString = function(stat, title = 'Task', format = .stdProgressFormat, Nan
 }
 
 .pollJids = function(...) {
-	qstat = System("qstat -u \\* -xml | xml sel -t -m '//JB_job_number' -v 'text()' -o ' '", 5,
-		..., return.output = T);
+	qstat = System("qstat -u \\* -xml | xml sel -t -m '//JB_job_number' -v 'text()' -o ' '",
+		logLevel = 6, ..., return.output = T);
 	jids = fetchRegexpr('(\\d+)', qstat$output, captures = T);
 	jids
 }
 
-.pollMessageRaw = function(jids, qstat_jids) {
+.pollMessageRaw_table = function(jids, qstat_jids) {
 	N = max(length(jids$steps), length(jids$chunks));
 	msg = as.vector(sapply(1:N, function(i) {
 		psc = .progressStat(jids$chunks, i, qstat_jids);
@@ -308,14 +315,26 @@ progressString = function(stat, title = 'Task', format = .stdProgressFormat, Nan
 	}));
 	msg
 }
-
-.pollMessage = function(msg, continue) {
+.pollMessage_table = function(msg, continue) {
 	header = paste(rep('-', 79), collapse = '');
 	conclusion = if (continue) 'Further scheduling pending' else 'Computation complete';
 	#messageRaw = paste(msg, collapse = "\n");
 	#message = paste(c(header, messageRaw, header, conclusion, '', ''), collapse = "\n");
 	message = c(header, msg, header, conclusion);
 	message
+}
+
+.pollMessageRaw = function(jids, qstat_jids) {
+	Nsteps = length(jids$steps);
+	Nchunks = length(jids$chunks);
+	jids = if (Nsteps >= Nchunks) jids$steps[[Nsteps]] else jids$chunks[[Nchunks]];
+	ps = progressStatJids(jids, qstat_jids);
+	progressString(ps, title = if (Nsteps >= Nchunks)
+		Sprintf('Rampdown %{Nsteps}d') else Sprintf('Parallelization %{Nchunks}d'));
+}
+
+.pollMessage = function(msg, continue) {
+	Sprintf('%{msg}s | [%{cont}s]', cont = if (continue) 'continued' else 'done');
 }
 
 setMethod('pollParallelization', 'ParallelizeBackendOGS', function(self, options = list()) {

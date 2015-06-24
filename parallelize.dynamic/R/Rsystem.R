@@ -125,7 +125,7 @@ File.exists = function(path, host = '', agent = 'ssh', ssh = T) {
 	r
 }
 
-File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, ignore.shell = T,
+File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 6, ignore.shell = T,
 	symbolicLinkIfLocal = T) {
 	spF = splitPath(from, ssh = T);
 	spT = splitPath(to, ssh = T);
@@ -149,7 +149,7 @@ File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel =
 	r
 }
 
-File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, ignore.shell = T,
+File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 6, ignore.shell = T,
 	symbolicLinkIfLocal = T) {
 	if (is.null(from)) return(NULL);
 	pairs = cbind(from, to);
@@ -161,7 +161,7 @@ File.copy = function(from, to, ..., recursive = F, agent = 'scp', logLevel = 5, 
 	r
 }
 
-File.remove = function(path, ..., agent = 'ssh', ssh = T, logLevel = 5) {
+File.remove = function(path, ..., agent = 'ssh', ssh = T, logLevel = 6) {
 	r = if (ssh) {
 		sp = splitPath(path, skipExists = T, ssh = T);
 		host = sp$userhost;
@@ -174,7 +174,7 @@ File.remove = function(path, ..., agent = 'ssh', ssh = T, logLevel = 5) {
 }
 
 # <i> remote operations
-File.symlink = function(from, to, replace = T, agent = 'ssh', ssh = F, logLevel = 5) {
+File.symlink = function(from, to, replace = T, agent = 'ssh', ssh = F, logLevel = 6) {
 	r = if (ssh) {
 		sp = splitPath(from, skipExists = T, ssh = T);
 		host = sp$userhost;
@@ -192,7 +192,7 @@ File.symlink = function(from, to, replace = T, agent = 'ssh', ssh = F, logLevel 
 
 # <!> only atomic path
 #	treatAsFile: causes Dir.create to split off last path-component
-Dir.create = function(path, ..., recursive = F, agent = 'ssh', logLevel = 5,
+Dir.create = function(path, ..., recursive = F, agent = 'ssh', logLevel = 6,
 	ignore.shell = T, allow.exists = T, treatPathAsFile = F) {
 	sp = splitPath(path, ssh = T);
 	# ignore last path-component
@@ -222,7 +222,7 @@ Save = function(..., file = NULL, symbolsAsVectors = F, mkpath = T, envir = pare
 	if (sp$is.remote) File.copy(localPath, file);
 	r
 }
-Load = function(..., file = NULL, Load_sleep = 0, Load_retries = 3, envir = parent.frame(1)) {
+Load = function(..., file = NULL, Load_sleep = 0, Load_retries = 3, envir = parent.frame(1), logLevel = 6) {
 	sp = splitPath(file, ssh = T);
 	localPath = if (sp$is.remote) tempfile() else file;
 	r = NULL;
@@ -232,7 +232,7 @@ Load = function(..., file = NULL, Load_sleep = 0, Load_retries = 3, envir = pare
 				Sys.sleep(Load_sleep);
 				next;
 			}
-			File.copy(file, localPath);
+			File.copy(file, localPath, logLevel = logLevel);
 		}
 		r = try(load(..., file = localPath, envir = envir));
 		if (class(r) == 'try-error' && Load_sleep > 0) Sys.sleep(Load_sleep) else break;
@@ -1291,8 +1291,8 @@ print2pdf = function(elements, file) {
 #
 
 # fix broken install from dir: create tarball -> install_local
-Install_local = function(path) {
+Install_local = function(path, ...) {
 	pkgPath = Sprintf('%{dir}Q/%{base}Q.tgz', dir = tempdir(), base = splitPath(path)$base);
 	System(Sprintf('tar czf %{pkgPath}Q %{path}Q'), 2);
-	install_local(pkgPath);
+	install_local(pkgPath, ...);
 }

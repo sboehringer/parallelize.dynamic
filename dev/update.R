@@ -21,7 +21,7 @@ if (1) {
 	# <p> current workaround for broken install_local (22.6.2015)
 	source('../parallelize.dynamic/R/Rdata.R');
 	source('../parallelize.dynamic/R/Rsystem.R');
-	Install_local('../parallelize.dynamic');
+	Install_local('../parallelize.dynamic', dependencies = FALSE);
 }
 
 if (0) {

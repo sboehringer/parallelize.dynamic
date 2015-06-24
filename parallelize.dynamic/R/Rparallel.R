@@ -34,7 +34,7 @@ library('tools');
 #' submitted
 #' @keywords package
 
-#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile Log Log.setLevel Log.level readFile
+#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile readFile
 #' @exportMethod finalizeParallelization
 #' @exportMethod getResult
 #' @exportMethod initialize

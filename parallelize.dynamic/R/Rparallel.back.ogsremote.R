@@ -190,6 +190,11 @@ setMethod('performParallelizationStep', 'ParallelizeBackendOGSremote',
 	cat(paste(c(message, ''), collapse = "\n"));
 	if (padLines > 0) cat(paste(rep("\n", padLines), collapse = ''));
 }
+catCr = function(message) {
+	cat("\r");
+	cat(message);
+}
+
 
 setMethod('pollParallelization', 'ParallelizeBackendOGSremote', function(self,
 	options = list(printProgress = T)) {
@@ -199,18 +204,19 @@ setMethod('pollParallelization', 'ParallelizeBackendOGSremote', function(self,
 	jids = get(Load(file = jidFile, Load_sleep = 30, Load_retries = 60)[[1]]);
 	qstat_jids = .pollJids(patterns = 'ssh',
 		ssh_host = splitPath(jidFile, ssh = T)$userhost, ssh_source_file = self@config$ssh_source_file);
-	print(jids); print(qstat_jids);
+	#print(jids); print(qstat_jids);
 	message = .pollMessageRaw(jids, qstat_jids);
 	# <p> check for completion
 	continue = !File.exists(.OGSremoteFile(self, 'sentinel'));
-	# <p> add rampup
-	message = c(
-		progressString(.progressStat(self@jids$steps, 1, qstat_jids), title = 'Rampup 1'),
-		message
-	);
+# 	# <p> add rampup
+# 	message = c(
+# 		progressString(.progressStat(self@jids$steps, 1, qstat_jids), title = 'Rampup 1'),
+# 		message
+# 	);
 	# <p> refine
 	message = .pollMessage(message, continue);
-	.catVector(message);
+	#.catVector(message);
+	catCr(message);
 	r = list(message = message, continue = continue);
 	r
 });
