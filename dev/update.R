@@ -3,14 +3,14 @@
 #Wed Jan 15 13:56:41 2014
 
 # run this with Rscript update.R
+require('roxygen2');
+require('devtools');
 
 if (1) {
 	system('./pullin.sh');
 }
 
 if (1) {
-	require('roxygen2');
-	require('devtools');
 	#roxygenize('../parallelize.dynamic', roclets = 'namespace');
 	#update_collate('../parallelize.dynamic');
 	#system('git commit -a -m "documentation update" ; git push');
@@ -25,5 +25,5 @@ if (1) {
 }
 
 if (0) {
-
+	install_github('sboehringer/parallelize.dynamic', subdir = 'parallelize.dynamic');
 }

@@ -34,7 +34,7 @@ library('tools');
 #' submitted
 #' @keywords package
 
-#' @export Apply Sapply Lapply parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile Log Log.setLevel Log.level readFile
+#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile Log Log.setLevel Log.level readFile
 #' @exportMethod finalizeParallelization
 #' @exportMethod getResult
 #' @exportMethod initialize
@@ -1078,7 +1078,11 @@ Lapply_recoverState = function(sequence) {
 	r
 }
 
-.lapply = Lapply = Lapply_backup = function(l, .f, ...,
+# Lapply should not applied here as it lives in the parallelize.dynamic package and will
+#	not be replaced by source
+# Lapply will be set to Lapply_backup on activation of parallelization
+#Lapply = lapply;
+.lapply = Lapply_backup = function(l, .f, ...,
 	Lapply_config = Lapply_getConfig(),
 	#Lapply_local = rget('Lapply_local', envir = parallelize_env, default = T),
 	Lapply_local = Lapply_config$local,
@@ -1119,7 +1123,7 @@ Lapply_recoverState = function(sequence) {
 	r
 }
 
-Sapply = sapply;
+#Sapply = sapply;
 Sapply_backup = function(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE) {
 	r = Lapply(X, FUN, ...);
 	r0 = sapply(r, identity, simplify = simplify, USE.NAMES = USE.NAMES);
@@ -1161,9 +1165,9 @@ Sapply_backup = function(X, FUN, ..., simplify = TRUE, USE.NAMES = TRUE) {
 #' 	r1 = Sapply(1:10, function(x)x^2);
 #' 	print(all(r0 == r1));
 #' 
-Apply = function(X, MARGIN, FUN, ...) {}
+#Apply = function(X, MARGIN, FUN, ...) {}
 Apply_margin_error = 'wrong MARGIN argument supplied to Apply';
-Apply = apply;
+#Apply = apply;
 Apply_backup = function(X, MARGIN, FUN, ...) {
 	r = if (length(MARGIN) == 1) {
 		extractor = if (MARGIN == 1) function(X, i)X[i, ] else
@@ -1179,7 +1183,7 @@ Apply_backup = function(X, MARGIN, FUN, ...) {
 		r0 = Lapply(els, function(i, ..., Apply_object__, Apply_FUN__, Apply_extractor__) {
 			Apply_FUN__(Apply_extractor__(Apply_object__, unlist(i)), ...)
 		} , ..., Apply_object__ = X, Apply_FUN__ = FUN, Apply_extractor__ = extractor);
-		r = sapply(r0, function(e)e);
+		r = sapply(r0, identity);
 		if (is.vector(r)) r = matrix(r, ncol = dim(X)[1]);
 		r
 	} else {
