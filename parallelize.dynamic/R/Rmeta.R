@@ -68,7 +68,7 @@ bound_fcts = function(f, functions = F, exceptions = bound_fcts_std_exceptions) 
 }
 
 
-environment_evaled = function(f, functions = F) {
+environment_evaled = function(f, functions = FALSE, recursive = FALSE) {
 	vars = bound_vars(f, functions);
 	e = nlapply(vars, function(v) rget(v, envir = environment(f)));
 	#Log(sprintf('environment_evaled: vars: %s', join(vars, ', ')), 7);
@@ -92,8 +92,8 @@ environment_evaled = function(f, functions = F) {
 	#Log(sprintf('evaled: %s', join(names(as.list(r)))));
 	r
 }
-environment_eval = function(f, functions = F) {
-	environment(f) = environment_evaled(f, functions = functions);
+environment_eval = function(f, functions = FALSE, recursive = FALSE) {
+	environment(f) = environment_evaled(f, functions = functions, recursive = recursive);
 	f
 }
 

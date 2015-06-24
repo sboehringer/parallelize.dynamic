@@ -493,7 +493,7 @@ LapplyExecutionStateClass = setRefClass('LapplyExecutionState',
 	#
 	initialize = function(freezerClass = 'LapplyFreezer', ...) {
 		# initialize super class
-		copy_environments <<- FALSE;
+		copy_environments <<- TRUE;
 		callSuper(freezerClass = freezerClass, ...);
 		# defaults
 		sequenceNos <<- list();
@@ -658,6 +658,10 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #' @param parallel_count Overwrite the \code{parallel_count} entry in
 #' \code{Lapply_config}.
 #' @param declare_reset if \code{FALSE}, add sourcefile/libraries to what was declared before
+#' @param copy_environments defaults to \code{TRUE} and copies all unbound variables if the
+#' backend requires so. \code{...} need to be specified as arguments to \code{Lapply} like so:
+#' \code{Lapply(values, function(v, ...)(1 + compute(v, ...)), ...)}. Otherwise an error messages
+#' results on 'non-local' backends (everything but \code{local}) at the moment.
 #' @return Value \code{NULL} is returned.
 #' @author Stefan Böhringer <r-packages@@s-boehringer.org>
 #' @seealso \code{\link{parallelize}}, \code{\link{parallelize_call}}, 
@@ -713,7 +717,7 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Parallelize_config__'), 
 	stateClass = 'LapplyState', backend = 'local', freezerClass = 'LapplyFreezer', ...,
 	force_rerun = FALSE, sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
-	copy_environments = FALSE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule') {
+	copy_environments = TRUE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule') {
 	# <p> check for turning off
 	if (backend == 'off') {
 		parallelize_setEnable(F);
@@ -932,7 +936,7 @@ Lapply_config_default = list(
 	max_depth = 2, parallel_count = 32, parallel_stack = 10,
 	provideChunkArgument = F, offline = F, stateDir = '.',
 	wait_interval = 30,
-	copy_environments = F
+	copy_environments = TRUE
 );
 Lapply_backendConfig_default = list(
 	doNotReschedule = F, doSaveResult = F

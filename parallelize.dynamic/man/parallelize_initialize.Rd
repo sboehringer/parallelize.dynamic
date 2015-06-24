@@ -9,7 +9,7 @@ parallelize_initialize(Lapply_config = get("Parallelize_config__"),
   stateClass = "LapplyState", backend = "local",
   freezerClass = "LapplyFreezer", ..., force_rerun = FALSE,
   sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
-  copy_environments = FALSE, declare_reset = FALSE,
+  copy_environments = TRUE, declare_reset = FALSE,
   rngSeedCapsules = "LapplyRNGseedCapsule")
 }
 \arguments{
@@ -35,6 +35,11 @@ ignores previous results and recomputes the whole computation.}
 
 \item{parallel_count}{Overwrite the \code{parallel_count} entry in
 \code{Lapply_config}.}
+
+\item{copy_environments}{defaults to \code{TRUE} and copies all unbound variables if the
+backend requires so. \code{...} need to be specified as arguments to \code{Lapply} like so:
+\code{Lapply(values, function(v, ...)(1 + compute(v, ...)), ...)}. Otherwise an error messages
+results on 'non-local' backends (everything but \code{local}) at the moment.}
 
 \item{declare_reset}{if \code{FALSE}, add sourcefile/libraries to what was declared before}
 

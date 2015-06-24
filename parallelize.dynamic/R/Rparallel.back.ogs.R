@@ -238,7 +238,11 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 		mycalls = freezer$callRange(idcs[job_index__, 1], idcs[job_index__, 2]);
 		# force evaluation/restriction of environment
 		mycalls = lapply(mycalls, function(lc) {
-			lc$fct = environment_eval(lc$fct, functions = self@config$copy_environments);
+			# < 24.6.2015
+			#lc$fct = environment_eval(lc$fct, functions = self@config$copy_environments);
+			if (self@config$copy_environments) {
+				lc$fct = environment_eval(lc$fct, functions = FALSE);
+			}
 			lc
 		});
 		freeze_control_chunk = c(freeze_control, list(rng = RNGuniqueSeed(c(self@signature, job_index__))));
