@@ -15,7 +15,8 @@
 #
 
 setGeneric("isSynchroneous", function(self) standardGeneric("isSynchroneous"));
-setGeneric("lapply_dispatch", function(self, l, f, ...) standardGeneric("lapply_dispatch"));
+setGeneric("lapply_dispatch",
+	function(self, l_parallelize, f_parallelize, ...)standardGeneric("lapply_dispatch"));
 setGeneric("lapply_dispatchFinalize", function(self) standardGeneric("lapply_dispatchFinalize"));
 setGeneric("lapply_results", function(self, r) standardGeneric("lapply_results"));
 # parallelize function as customized by the backend
