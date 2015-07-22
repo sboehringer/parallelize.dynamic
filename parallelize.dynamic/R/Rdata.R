@@ -1973,16 +1973,16 @@ inlist = function(l)lapply(l, function(e)list(e));
 #'
 #'
 #'
-iterateModels_raw = function(modelList, models, f = function(...)list(...), ...,
+iterateModels_raw = function(modelList, models, f_iterate = function(...)list(...), ...,
 	callWithList = F, restrictArgs = T, parallel = F, lapply__) {
 	if (!parallel) Lapply = lapply;
-	r = Lapply(1:nrow(models), function(i, ...) {
+	r = Lapply(1:nrow(models), function(i, ..., f_iterate) {
 		modelPars = merge.lists.takenFrom(modelList, unlist(models[i, ]));
-		if (callWithList) f(i, modelPars, ...) else {
+		if (callWithList) f_iterate(i, modelPars, ...) else {
 			args = c(list(i = i), modelPars, list(...));
-		.do.call(f, args, restrictArgs = restrictArgs)
+		.do.call(f_iterate, args, restrictArgs = restrictArgs)
 		}
-	}, ...);
+	}, ..., f_iterate = f_iterate);
 	r
 }
 
@@ -1994,7 +1994,7 @@ iterateModels_prepare = function(modelList, .constraint = NULL,
 
 	# <p> handle constraints
 	selC = if (is.null(.constraint)) T else
-		unlist(iterateModels_raw(modelList, models, f = .constraint,
+		unlist(iterateModels_raw(modelList, models, f_iterate = .constraint,
 			lapply__ = lapply, callWithList = callWithList, restrictArgs = restrictArgs, ...));
 	selI = if (is.null(selectIdcs)) T else 1:nrow(models) %in% selectIdcs;
 	#	apply constraints
@@ -2019,14 +2019,14 @@ iterateModels = function(modelList, f = function(...)list(...), ...,
 
 	# <p> handle constraints
 	selC = if (is.null(.constraint)) T else
-		unlist(iterateModels_raw(modelList, models, f = .constraint,
+		unlist(iterateModels_raw(modelList, models, f_iterate = .constraint,
 			callWithList = callWithList, restrictArgs = restrictArgs, ..., parallel = F));
 	selI = if (is.null(selectIdcs)) T else 1:nrow(models) %in% selectIdcs;
 	#	apply constraints
 	models = models[selC & selI, , drop = F];
 	models_symbolic = models_symbolic[selC & selI, , drop = F];
 
-	r = iterateModels_raw(modelList, models, f = f,
+	r = iterateModels_raw(modelList, models, f_iterate = f,
 		callWithList = callWithList, restrictArgs = restrictArgs, ..., parallel = parallel);
 	r = if (.resultsOnly) r else list(
 		models = models,

@@ -291,20 +291,21 @@ LapplyFreezerClass = setRefClass('LapplyFreezer',
 		calls <<- list();
 		gc();
 	},
-	push = function(sequence, f, l, args) {
+	push = function(sequence, f_parallelize, l_parallelize, args_parallelize) {
 		# store by seqeunce id from LapplyState object
-		Log(sprintf('Freezing %d invocations @ seq %d.', length(l), sequence), 5);
+		Log(sprintf('Freezing %d invocations @ seq %d.', length(l_parallelize), sequence), 5);
 		slots[[as.character(sequence)]] <<- list(
 			# definition of function called
-			f = f,
+			f = f_parallelize,
 			# number of list elements iterated
-			N = length(l),
+			N = length(l_parallelize),
 			# start index of result list in sequential order of calls
 			start = sum(list.key(slots, 'N')) + 1
 		);
 		Log(sprintf('LapplyFreezer: copy environment: %s', copy_env), 5);
-		calls <<- c(calls, lapply(l, function(e) {
-			callWithFunctionArgs(f, c(list(e), args), env_eval = copy_env)
+		calls <<- c(calls, lapply(l_parallelize, function(e) {
+			callWithFunctionArgs(f__ = f_parallelize, args__ = c(list(e), args_parallelize),
+				env_eval = copy_env)
 		}));
 		NULL
 	},
@@ -1034,14 +1035,15 @@ Lapply_probe = function(call_, Lapply_config) with(Lapply_config,  {
 	r
 })
 
-Lapply_parallelize = function(l, .f, ..., Lapply_config, envir__) {
+Lapply_parallelize = function(l_parallelize, f_parallelize, ..., Lapply_config, envir__) {
 	Lapply_backend__ = get('Lapply_backend__', envir = parallelize_env);
 	Lapply__ = get('Lapply__', envir = parallelize_env);
 	r = if (Lapply__$depth == Lapply__$max_depth) {
-		lapply_dispatch(Lapply_backend__, l, .f, ..., envir__ = envir__);
+		lapply_dispatch(Lapply_backend__,
+			l_parallelize = l_parallelize, f_parallelize = f_parallelize, ..., envir__ = envir__);
 	} else {
 		Log(sprintf('entering parallelization at depth %d', Lapply__$depth), 6);
-		Lapply_do(l, function(e, ...)Try(.f(e, ...),
+		Lapply_do(l_parallelize, function(e, ...)Try(f_parallelize(e, ...),
 			catch = list(Lapply_error = function(e){
 				Log('Lapply_do catch', 6);
 				Lapply__$depthDec();	# <A> balance depth
@@ -1065,7 +1067,7 @@ Lapply_run = function(call_, Lapply_depth, Lapply_config) {
 	# reset state cursor
 	Lapply_initializeState('LapplyRunState', max_depth = Lapply_depth);
 	Log(sprintf('Lapply_run: running at depth %d.', Lapply_depth), 5);
-	
+
 	r = Try(Do.call(call_$fct, call_$args, envir = call_$envir),
 		catch = list(Lapply_error = function(e)Log('final run catch', 5)));
 	Lapply_backend__ = get('Lapply_backend__', envir = parallelize_env);

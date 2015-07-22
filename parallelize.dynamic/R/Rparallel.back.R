@@ -103,13 +103,15 @@ setMethod('initialize', 'ParallelizeBackend', function(.Object, config = list(),
 
 setMethod('isSynchroneous', 'ParallelizeBackend', function(self) { return(T); });
 # use envir__ to evaluate ...
-setMethod('lapply_dispatch', 'ParallelizeBackend', function(self, l, f, ..., envir__ = parent.frame()) { 
+setMethod('lapply_dispatch', 'ParallelizeBackend', function(self, l_parallelize, f_parallelize, ...,
+	envir__ = parent.frame()) { 
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	Lapply__ = get('Lapply__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
 	args = eval(list(...), envir = envir__);
 	Log(sprintf('Pushing @ depth %d', Lapply__$getDepth()), 6);
-	freezer$push(Lapply__$sequence, f, l, args);
+	freezer$push(Lapply__$sequence,
+		f_parallelize = f_parallelize, l_parallelize = l_parallelize, args_parallelize = args);
 	NULL
 });
 setMethod('lapply_dispatchFinalize', 'ParallelizeBackend', function(self) { 

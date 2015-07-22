@@ -295,12 +295,12 @@ callEvalArgs = function(call_, env_eval = FALSE) {
 }
 
 #callWithFunctionArgs = function(f, args, envir__ = parent.frame(), name = NULL) {
-callWithFunctionArgs = function(f, args, envir__ = environment(f), name = NULL, env_eval = FALSE) {
-	if (env_eval) f = environment_eval(f, functions = T);
+callWithFunctionArgs = function(f__, args__, envir__ = environment(f__), name = NULL, env_eval = FALSE) {
+	if (env_eval) f = environment_eval(f__, functions = FALSE, recursive = FALSE);
 	call_ = list(
-		fct = f,
-		envir = environment(f),
-		args = args,
+		fct = f__,
+		envir = environment(f__),
+		args = args__,
 		name = name
 	);
 	call_

@@ -131,8 +131,9 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		r = parallelize_internal(call_, parallelize_wait = F);
 	};
 	# <p> start rampup on remote host
+	remoteSourceFiles = sapply(self@config$sourceFiles, function(path)splitPath(path)$file);
 	freeze_control = list(
-		sourceFiles = self@config$sourceFiles,
+		sourceFiles = remoteSourceFiles,
 		libraries = self@config$libraries,
 		logLevel = Log.level(),
 		freeze_relative = T

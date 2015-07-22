@@ -690,8 +690,12 @@ Do.call = function(what, args, quote = FALSE, envir = parent.frame(),
 #'
 #' @param as.dirs assume that prefixes are pathes, i.e. a slash will be put between path and prefix
 #' @param force enforces that path and prefix are always joined, otherwise if path is absolute no prefixing is performed
-file.locate = function(path, prefixes = NULL, normalize = T, as.dirs = T, force = F) {
+file.locate = function(path, prefixes = NULL, normalize = T, as.dirs = T, force = F, home = T) {
 	if (!force && substr(path, 1, 1) == '/') return(path);
+	if (substr(path, 1, 1) == '~' && home) {
+		path = path.absolute(path, home = TRUE);
+		if (!force) return(path);
+	}
 	if (is.null(prefixes)) prefixes = if (as.dirs) '.' else '';
 	sep = ifelse(as.dirs, '/', '');
 	for (prefix in prefixes) {
@@ -767,10 +771,10 @@ Source_url = function(url, ...) {
 
 # <!> local = T does not work
 Source = function(file, ...,
-	locations = c('.', sprintf('%s/src/Rscripts', Sys.getenv('HOME')))) {
+	locations = c('', '.', sprintf('%s/src/Rscripts', Sys.getenv('HOME')))) {
 	sapply(file, function(file) {
 		if (isURL(file)) Source_url(file, ...) else {
-			file0 = file.locate(file, prefixes = locations);
+		file0 = file.locate(file, prefixes = locations);
 			source(file = file0, ...)
 		}
 	})
