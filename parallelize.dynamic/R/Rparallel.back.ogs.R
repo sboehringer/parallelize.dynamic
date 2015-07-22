@@ -241,7 +241,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 			# < 24.6.2015
 			#lc$fct = environment_eval(lc$fct, functions = self@config$copy_environments);
 			if (self@config$copy_environments) {
-				lc$fct = environment_eval(lc$fct, functions = FALSE);
+				lc$fct = environment_eval(lc$fct, functions = FALSE, recursive = FALSE);
 			}
 			lc
 		});
@@ -284,18 +284,22 @@ progressStatJids = function(jids, jidsRunning) {
 	progressStatJids(jidsTask, jidsRunning)
 }
 
-.stdProgressFormat = list(title = '%-20s', N = '%4d', progress = '%25s', Perc = '%3.0f%%');
+.stdProgressFormat = list(
+	title = '%-20s ', Ncomplete = '%4d/', N = '%d', progress = ' [%25s] ', Perc = '%3.0f%%'
+);
 progressString = function(stat, title = 'Task', format = .stdProgressFormat, NanString = '----') {
 	format = merge.lists(.stdProgressFormat, format);
 	L = nchar(sprintf(format$progress, '-'));	# length progress bar
 	progressBar = if (is.nan(stat$complete)) sprintf('%-*s', L, 'count pending') else
 		paste(c(rep('#', round(stat$complete * L, 0)),
 			rep('.', round((1 - stat$complete) * L, 0))), collapse = '');
-	values = list(title = title, Perc = floor(100 * stat$complete), N = stat$N, progress = progressBar);
-	r = unlist(nlapply(format, function(n) {
-		if (is.nan(values[[n]])) NanString else sprintf(format[[n]], values[[n]])
+		values = list(title = title,
+			Perc = floor(100 * stat$complete),
+			Ncomplete = stat$Ncomplete, N = stat$N, progress = progressBar);
+		r = unlist(nlapply(format, function(n) {
+			if (is.nan(values[[n]])) NanString else sprintf(format[[n]], values[[n]])
 	}));
-	r = paste(r, collapse = ' ');
+	r = paste(r, collapse = '');
 	r
 		
 }

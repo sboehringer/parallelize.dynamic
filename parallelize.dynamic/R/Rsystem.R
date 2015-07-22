@@ -65,7 +65,7 @@ path.absolute = absolutePath = function(path, home.dir = T, ssh = T) {
 	if (nchar(path) > 0 && substr(path, 1, 1) == "/") path else sprintf("%s/%s", getwd(), path)
 }
 tempFileName = function(prefix, extension = NULL, digits = 6, retries = 5, inRtmp = F,
-	createDir = F, home.dir = T) {
+	createDir = F, home.dir = T, doNotTouch = F) {
 	ext = if (is.null(extension)) '' else sprintf('.%s', extension);
 	path = NULL;
 	if (inRtmp) prefix = sprintf('%s/%s', tempdir(), prefix);
@@ -79,7 +79,7 @@ tempFileName = function(prefix, extension = NULL, digits = 6, retries = 5, inRtm
 	# potential race condition <N>
 	if (createDir)
 		Dir.create(path, recursive = T) else
-		writeFile(path, '', mkpath = T, ssh = T);
+		if (!doNotTouch) writeFile(path, '', mkpath = T, ssh = T);
 	# # old implementation
 	#path = tempfile(prefix);
 	#cat('', file = path);	# touch path to lock name
@@ -418,13 +418,14 @@ Log.setLevel(4);	# default
 	post = function(spec, ret, ...) { list() }
 	),
 	# <i> stdout/stderr handling
-	ssh = list(pre = function(cmd, spec, ssh_host = 'localhost', ssh_source_file = NULL, ...) {
+	ssh = list(pre = function(cmd, spec, ssh_host = 'localhost', ssh_source_file = NULL, ...,
+		ssh_single_quote = T) {
 		if (!is.null(ssh_source_file)) {
 			cmd = sprintf('%s ; %s',
 				join(paste('source', qs(ssh_source_file), sep = ' '), ' ; '), cmd);
 		}
-		ncmd = sprintf('ssh %s %s', ssh_host, qs(cmd));
-		spec = list(cmd = ncmd);
+		fmt = if (ssh_single_quote) 'ssh %{ssh_host}s %{cmd}q' else 'ssh %{ssh_host}s %{cmd}Q';
+		spec = list(cmd = Sprintf(fmt));
 		spec
 	},
 	fs = function(fs, ..., ssh_host) {
@@ -947,6 +948,7 @@ stdOutFromCall = function(call_) {
 #
 
 md5sumString = function(s, prefix = 'md5generator') {
+	require('tools');
 	path = tempfile('md5generator');
 	writeFile(path, s);
 	md5 = avu(md5sum(path));
@@ -1258,15 +1260,30 @@ publishCsv = function(table, as, ..., into = NULL) {
 }
 
 publishDir = function(dir, into = NULL, as = NULL) with(publishFctEnv('', into, as), {
-	if (!is.null(into)) Dir.create(destination);
-	Logs('Publishing %{dir} --> "%{destination}s', 3);
+	if (!is.null(into)) {
+		destination = splitPath(destination)$fullbase;	# remove trailing slash
+		Dir.create(destination);
+	}
+	Logs('Publishing %{dir} --> %{destination}s', 3);
 	Dir.create(destination, recursive = T);
-	System(Sprintf("chmod -R a+rX %{dir}s", dir = qs(projectFolder)), 4);
-	System(Sprintf("cp -r %{dir}s/ %{dest}s", dir = qs(dir),
-		dest = qs(destination)), 4);
-	System(Sprintf("chmod -R a+rX %{dir}s", dir = qs(projectFolder)), 4);
+	System(Sprintf("chmod -R a+rX %{projectFolder}Q"), 4);
+	System(Sprintf("cp -r %{dir}Q/* %{destination}Q"), 4);
+	System(Sprintf("chmod -R a+rX %{projectFolder}Q"), 4);
 	destination
 })
+
+publishAsZip = function(files, as, into = NULL, recursive = FALSE) {
+	tmp = tempFileName('publishAsZip', createDir = T, inRtmp = T);
+	output = tempFileName('publishAsZip', 'zip', inRtmp = T, doNotTouch = T);
+	sapply(files, function(file) {
+		File.symlink(splitPath(file)$absolute, Sprintf("%{tmp}s"), replace = F);
+		NULL
+	});
+	recursiveOption = ifelse(recursive, '-r', '');
+	System(Sprintf("zip -j %{recursiveOption}s %{output}s %{tmp}s/*"), 2);
+	publishFile(output, into = into, as = as);
+}
+
 
 #
 #	<p> quick pdf generation

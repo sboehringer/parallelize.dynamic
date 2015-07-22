@@ -153,6 +153,13 @@ r.output.to.vector.numeric = function(s) {
 	as.numeric(v)
 }
 readFile = function(path) { join(scan(path, what = "raw", sep = "\n", quiet = T), sep = "\n") };
+circumfix = function(s, post = NULL, pre = NULL) {
+	if (is.null(s) || length(s) == 0) return('');
+	sapply(s, function(s)if (s == '') s else con(pre, s, post))
+}
+abbr = function(s, Nchar = 20, ellipsis = '...') {
+	ifelse(nchar(s) > Nchar, paste(substr(s, 1, Nchar - nchar(ellipsis)), ellipsis, sep = ''), s)
+}
 
 Which.max = function(l, last.max = T, default = NA) {
 	if (is.logical(l) && all(!l)) return(default);
@@ -316,10 +323,10 @@ mergeDictToDict = function(dMap, dValues, ..., recursive = T) {
 	r
 }
 
-# quote if needed
+# double quote if needed
 qsSingle = function(s, force = F) {
 	# <N> better implementation possible: detect unquoted white-space
-	if (force || length(fetchRegexpr('[ \t]', s)) > 0) {
+	if (force || length(fetchRegexpr('[ \t"]', s)) > 0) {
 		s = gsub('([\\"])', '\\\\\\1', s);
 		s = sprintf('"%s"', s);
 	} else {
@@ -329,6 +336,16 @@ qsSingle = function(s, force = F) {
 	s
 }
 qs = function(s, ...)sapply(s, qsSingle, ...)
+# single quote if needed
+qssSingle = function(s, force = F) {
+	# <N> better implementation possible: detect unquoted white-space
+	if (force || length(fetchRegexpr("[ \t']", s)) > 0) {
+		s = gsub("(['])", "'\"'\"'", s);
+		s = sprintf("'%s'", s);
+	}
+	s
+}
+qss = function(s, ...)sapply(s, qssSingle, ...)
 
 #' Return sub-strings indicated by positions or produce a string by substituting those strings with
 #'	replacements
@@ -397,12 +414,12 @@ Sprintf = sprintd = function(fmt, ..., sprintf_cartesian = FALSE, envir = parent
 		(?:[^%]+|(?:%%)+)*\\K
 		[%]
 			(?:[{]([^{}\\*\'"]*)[}])?
-		((?:[-]?[*\\d]*[.]?[*\\d]*)?(?:[sdfegGDQ]|))(?=[^sdfegGDQ]|$)
+		((?:[-]?[*\\d]*[.]?[*\\d]*)?(?:[sdfegGDQq]|))(?=[^sdfegGDQq]|$)
 	)';
 	r = fetchRegexpr(re, fmt, capturesAll = T, returnMatchPositions = T);
 	typesRaw = sapply(r$match, function(m)ifelse(m[2] == '', 's', m[2]));
 	types = ifelse(typesRaw %in% c('D', 'Q'), 's', typesRaw);
-	fmts = sapply(r$match, function(m)sprintf('%%%s', ifelse(m[2] %in% c('', 'D', 'Q'), 's', m[2])));
+	fmts = sapply(r$match, function(m)sprintf('%%%s', ifelse(m[2] %in% c('', 'D', 'Q', 'q'), 's', m[2])));
 	fmt1 = Substr(fmt, r$positions, attr(r$positions, 'match.length'), fmts);
 
 	keys = sapply(r$match, function(i)i[1]);
@@ -432,6 +449,8 @@ Sprintf = sprintd = function(fmt, ..., sprintf_cartesian = FALSE, envir = parent
 	# <p> conversion <i>: new function
 	colsQ = keys[typesRaw == 'Q'];
 	dictDf[, colsQ] = apply(dictDf[, colsQ, drop = F], 2, qs);
+	colsq = keys[typesRaw == 'q'];
+	dictDf[, colsq] = apply(dictDf[, colsq, drop = F], 2, qss);
 
 	s = sapply(1:nrow(dictDf), function(i) {
 		valueDict = as.list(dictDf[i, , drop = F]);
@@ -1764,11 +1783,20 @@ niz = function(e)ifelse(is.null(e) | is.na(e), 0, e)
 # }
 meanMatrices = function(d) {
 	dm = dim(d[[1]]);
+	good = sapply(d, function(m)(length(dim(m)) == 2 && all(dim(m) == dm)));
+	if (any(!good)) warning('meanMatrices: malformed/incompatible matrices in list, ignored');
+	d = d[good];
 	m0 = sapply(d, function(e)avu(e));
 	m1 = apply(m0, 1, mean, na.rm = T);
 	r = matrix(m1, ncol = dm[2], dimnames = dimnames(d[[1]]));
 	r
 }
+meanMatrices_test = function() {
+	m = list(matrix(1:4, ncol = 2), matrix(5:8, ncol = 2));
+	if (!all(meanMatrices(m) == matrix(3:6, ncol = 2))) stop('meanMatrix test failed');
+	if (!all(meanMatrices(c(m, list())) == matrix(3:6, ncol = 2))) stop('meanMatrix test failed');
+}
+
 meanVectors = function(d) {
 	ns = names(d[[1]]);
 	mn = apply(as.matrix(sapply(d, function(e)e)), 1, mean, na.rm = T);
@@ -1946,8 +1974,9 @@ inlist = function(l)lapply(l, function(e)list(e));
 #'
 #'
 iterateModels_raw = function(modelList, models, f = function(...)list(...), ...,
-	lapply__ = Lapply, callWithList = F, restrictArgs = T) {
-	r = lapply__(1:nrow(models), function(i, ...) {
+	callWithList = F, restrictArgs = T, parallel = F, lapply__) {
+	if (!parallel) Lapply = lapply;
+	r = Lapply(1:nrow(models), function(i, ...) {
 		modelPars = merge.lists.takenFrom(modelList, unlist(models[i, ]));
 		if (callWithList) f(i, modelPars, ...) else {
 			args = c(list(i = i), modelPars, list(...));
@@ -1980,8 +2009,8 @@ iterateModels_prepare = function(modelList, .constraint = NULL,
 
 iterateModels = function(modelList, f = function(...)list(...), ...,
 	.constraint = NULL, .clRunLocal = T, .resultsOnly = F, .unlist = 0,
-	lapply__ = Lapply, callWithList = F, symbolizer = NULL, restrictArgs = T, selectIdcs = NULL,
-	.first.constant = T) {
+	callWithList = F, symbolizer = NULL, restrictArgs = T, selectIdcs = NULL,
+	.first.constant = T, parallel = F, lapply__) {
 	# <p> produce raw combinations
 	modelSize = lapply(modelList, function(m)1:length(m));
 	models = merge.multi.list(modelSize, .first.constant = .first.constant);
@@ -1991,14 +2020,14 @@ iterateModels = function(modelList, f = function(...)list(...), ...,
 	# <p> handle constraints
 	selC = if (is.null(.constraint)) T else
 		unlist(iterateModels_raw(modelList, models, f = .constraint,
-			lapply__ = lapply, callWithList = callWithList, restrictArgs = restrictArgs, ...));
+			callWithList = callWithList, restrictArgs = restrictArgs, ..., parallel = F));
 	selI = if (is.null(selectIdcs)) T else 1:nrow(models) %in% selectIdcs;
 	#	apply constraints
 	models = models[selC & selI, , drop = F];
 	models_symbolic = models_symbolic[selC & selI, , drop = F];
 
 	r = iterateModels_raw(modelList, models, f = f,
-		lapply__ = lapply__, callWithList = callWithList, restrictArgs = restrictArgs, ...);
+		callWithList = callWithList, restrictArgs = restrictArgs, ..., parallel = parallel);
 	r = if (.resultsOnly) r else list(
 		models = models,
 		results = r,

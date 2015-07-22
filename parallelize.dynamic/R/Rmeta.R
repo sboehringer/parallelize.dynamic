@@ -74,12 +74,12 @@ environment_evaled = function(f, functions = FALSE, recursive = FALSE) {
 	#Log(sprintf('environment_evaled: vars: %s', join(vars, ', ')), 7);
 	#Log(sprintf('environment_evaled: functions: %s', functions), 7);
 	if (functions) {
-		fcts = bound_fcts(f, functions = T);
+		fcts = bound_fcts(f, functions = TRUE);
 		fcts_e = nlapply(fcts, function(v){
 			#Log(sprintf('environment_evaled: fct: %s', v), 7);
 			v = rget(v, envir = environment(f));
 			#if (!(environmentName(environment(v)) %in% c('R_GlobalEnv')))
-			v = environment_eval(v, functions = T);
+			v = environment_eval(v, functions = TRUE);
 		});
 		#Log(sprintf('fcts: %s', join(names(fcts_e))));
 		e = c(e, fcts_e);
@@ -287,7 +287,7 @@ callEvalArgs = function(call_, env_eval = FALSE) {
 	}
 
 	if (env_eval) {
-		call_$fct = environment_eval(call_$fct, functions = T);
+		call_$fct = environment_eval(call_$fct, functions = FALSE, recursive = FALSE);
 	}
 	# <p> construct return value
 	#callArgs = lapply(call_$args, function(e){eval(as.expression(e), call_$envir)});
