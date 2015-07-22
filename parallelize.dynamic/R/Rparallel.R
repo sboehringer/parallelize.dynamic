@@ -394,18 +394,20 @@ LapplyGroupingFreezerClass = setRefClass('LapplyGroupingFreezer',
 	#
 	#	<p> methods
 	#
-	push = function(sequence, f, l, args) {
+	push = function(sequence, f_parallelize, l_parallelize, args_parallelize) {
 		# store by seqeunce id from LapplyState object
-		Log(sprintf('Freezing %d invocations @ seq %d.', length(l), sequence), 5);
+		Log(sprintf('Freezing %d invocations @ seq %d.', length(l_parallelize), sequence), 5);
 		slots[[as.character(sequence)]] <<- list(
 			# definition of function called
-			f = f,
+			f = f_parallelize,
 			# number of list elements iterated
-			N = length(l),
+			N = length(l_parallelize),
 			# start index of result list in sequential order of calls
 			start = sum(list.key(slots, 'N')) + 1
 		);
-		calls <<- c(calls, list(list(elements = l, fct = f, arguments = args)));
+		calls <<- c(calls, list(
+			list(elements = l_parallelize, fct = f_parallelize, arguments = args_parallelize))
+		);
 		NULL
 	},
 	call = function(i) {
