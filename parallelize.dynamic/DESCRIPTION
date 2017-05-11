@@ -27,5 +27,6 @@ Collate:
     'Rparallel.back.ogsremote.R'
     'Rparallel.R'
     'Rparallel_setEnable_pkg.R'
-    'Rsystem.R'
     'Rmeta.R'
+    'Rsystem.R'
+RoxygenNote: 6.0.1
