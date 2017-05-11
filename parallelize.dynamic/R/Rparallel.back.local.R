@@ -47,8 +47,7 @@ setMethod('initialize', 'ParallelizeBackendLocal', function(.Object, config, ...
 setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocal', function(self) { 
 	Log(sprintf('Local dispatch, tmp: %s', self@config$stateDir), 5);
 	parallelize_setEnable(F);
-	parallelize.dynamic:::Lapply_setConfigValue(
-		activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
+	Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	Lapply__ = get('Lapply__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();

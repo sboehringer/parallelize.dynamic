@@ -34,7 +34,7 @@ library('tools');
 #' submitted
 #' @keywords package
 
-#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile readFile
+#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile readFile Lapply_getConfig Lapply_setConfigValue
 #' @exportMethod finalizeParallelization
 #' @exportMethod getResult
 #' @exportMethod initialize

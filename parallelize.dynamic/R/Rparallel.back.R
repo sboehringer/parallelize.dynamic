@@ -121,8 +121,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackend', function(self) {
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
 	parallelize_setEnable(F);
-	parallelize.dynamic:::Lapply_setConfigValue(
-		activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
+	Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 	r = lapply(1:freezer$Ncalls(), function(i) {
 		call = freezer$call(i);
 		#call = callEvalArgs(call);

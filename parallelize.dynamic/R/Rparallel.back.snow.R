@@ -71,8 +71,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendSnow', function(self) {
 # 	});
 	r = clapply(calls, function(call) {
 		parallelize_setEnable(F);
-		parallelize.dynamic:::Lapply_setConfigValue(
-			activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
+		Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
  		#sink('/tmp/debug', append = T);print(Lapply);sink();
 		#call = callEvalArgs(call);
 # 		sink('/tmp/debug', append = T);print(join(names(as.list(environment(call$fct)))));print(as.list(environment(as.list(environment(call$fct))$f)));print(str(call));sink();
