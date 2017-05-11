@@ -370,7 +370,7 @@ LapplyPersistentFreezerClass = setRefClass('LapplyPersistentFreezer',
 		r = lapply(results[[length(results)]], function(r) {
 			i = intersect(r$from:r$to, seqCalls);
 			r1 = if (length(i) > 0) {
-				r0 = frozenCallResults(r$file);
+				r0 = loadResults(r);
 				# do we have to skip portions of current list?
 				from = max(slot$start - r$from + 1, 1);
 				# how much is left to grab?
@@ -383,6 +383,14 @@ LapplyPersistentFreezerClass = setRefClass('LapplyPersistentFreezer',
 		r = r[!sapply(r, is.null)];
 		r = unlist.n(r, 1);
 		r
+	},
+	loadResults = function(r) {
+		# if fileOutput is given use that to aquire results
+		if (Nif(r$fileOutput)) get(load(r$fileOutput)[1]) else
+		# otherwise assume a freeze had happened and read by the freezing convention
+		if (Nif(r$file)) frozenCallResults(r$file) else
+		# assume results are not writting to disk
+		r$results
 	}
 
 	)
@@ -416,9 +424,9 @@ LapplyGroupingFreezerClass = setRefClass('LapplyGroupingFreezer',
 		NsegmentsCS = c(0, cumsum(Nsegments));
 		segment = rev(which(i > NsegmentsCS))[1];
 		mycall = calls[[segment]];
-
 		callWithFunctionArgs(mycall$fct,
-			c(mycall$elements[i - NsegmentsCS[segment]], mycall$arguments, env_eval = copy_env)
+			c(mycall$elements[i - NsegmentsCS[segment]], mycall$arguments),
+			env_eval = copy_env
 		)
 	},
 	callRange = function(from, to){
@@ -440,10 +448,10 @@ LapplyGroupingFreezerClass = setRefClass('LapplyGroupingFreezer',
 	getCalls = function() {
 		r = lapply(1:self$Ncalls(), function(i)self$call(i));
 		r
-	}
- 	, resultsForSequence = function(s) {
- 		#r = unlist.n(callSuper(s), 1);
- 		r = callSuper(s);
+	},
+	resultsForSequence = function(s) {
+		#r = unlist.n(callSuper(s), 1);
+		r = callSuper(s);
 		r
  	}
 	#
@@ -644,7 +652,7 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 #' 
 #' @aliases parallelize_initialize Lapply_initialize
 #' @param Lapply_config A list describing possible configurations of the
-#' parallelization process. See Details.
+#' parallelization process. See Details. If NULL, uses the current config state.
 #' @param stateClass A class name representing parallelization states. Needs
 #' only be supplied if custom extensions have been made to the package.
 #' @param backend The name of the backend used. See Details and Examples.
@@ -727,9 +735,13 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 		return(NULL);
 	} else parallelize_setEnable(T);
 	# <p> misc setup
+	if (is.null(Lapply_config)) Lapply_config = Lapply_getConfig();
 	Log.setLevel(firstDef(Lapply_config$logLevel, Log.level(), 4));
 	parallelize_setEnable(T);
+
+	#
 	# <p> config
+	#
 	configPre = Lapply_createConfig();
 	sourceFiles = c(
 		if (declare_reset) c() else configPre$sourceFiles,
@@ -749,13 +761,24 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 			sourceFiles = sourceFiles, libraries = libraries, copyFiles = copyFiles,
 			copy_environments = copy_environments)
 	);
+	# <p> activeDictionary
+	# activeDictionary indicates which dictonary element should be used to retrieve tags
+	# it is intended to map data pathes or backend specific values
+	#	this must be changed be changed in the backend-method lapply_dispatchFinalize after
+	#	parallelize_setEnable(F) is called with
+	#	Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend)
+	# <i><A> should be factored out later to make this unnecessary
+	activeDictionary = 'native';
+	# <p> final config
 	Lapply_config = merge.lists(
 		Lapply_config_default,
 		Lapply_config,
 		list(backend = backend, backendConfig = backendConfig, parallel_count = parallel_count,
 			sourceFiles = sourceFiles, libraries = libraries,
 			copy_environments = copy_environments,
-			seedCapsules = rngSeedCapsules)
+			seedCapsules = rngSeedCapsules,
+			activeDictionary = activeDictionary
+		)
 	);
 	Lapply_setConfig(Lapply_config);
 	# <p> backend
@@ -797,7 +820,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 #'   # run ensuing parallelizations locally, ignore result produced earlier
 #'   parallelize_declare(source = 'mySourceFile.R', packages = 'glmnet');
 #' 
-parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, reset = TRUE) {
+parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, reset = TRUE, config = NULL) {
 	Lapply_config = Lapply_createConfig();
 	# <p> config
 	sourceFiles = unique(c(if (!reset) Lapply_config$sourceFiles else c(), source));
@@ -805,12 +828,13 @@ parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, rese
 	copyFiles = unique(c(if (!reset) Lapply_config$copyFiles else c(), copy));
 	# <!><i> copyFiles
 
-	Lapply_setConfig(merge.lists(
+	newConfig = merge.lists(
 		Lapply_config_default,
 		Lapply_config,
+		config,
 		list(sourceFiles = sourceFiles, libraries = libraries, copyFiles = copyFiles)
-	));
-	NULL
+	);
+	Lapply_setConfig(newConfig);
 }
 
 parallelize_initializeBackendWithCall = function(call_, Lapply_config) with(Lapply_config, {
@@ -836,9 +860,9 @@ Lapply_initialze_probing = function() {
 	Lapply_executionState__$resetCursor();
 }
 
-Lapply_setConfig = function(config) {
-	assign('Lapply_globalConfig__', config, envir = parallelize_env);
-}
+#
+#	<p> configuration
+#
 Lapply_getConfig = function() {
 	get('Lapply_globalConfig__', envir = parallelize_env);
 	#Lapply_globalConfig__
@@ -847,6 +871,22 @@ Lapply_createConfig = function() {
 	if (!exists('Lapply_globalConfig__', envir = parallelize_env))
 		Lapply_setConfig(Lapply_config_default);
 	Lapply_getConfig()
+}
+Lapply_setConfig = function(config) {
+	assign('Lapply_globalConfig__', config, envir = parallelize_env);
+}
+Lapply_setConfigValue = function(...) {
+	newConfig = merge.lists(Lapply_getConfig(), list(...));
+	Lapply_setConfig(newConfig);
+}
+# lookup a value from the dictionary
+#	values default to the 'native' dictionary
+parallelize_lookup = Lapply_lookup = function(name) {
+	c = Lapply_getConfig();
+	d = c$dictionary;
+	dictName = if (is.null(d[[c$activeDictionary]])) 'native' else c$activeDictionary;
+	value = if (is.null(d[[dictName]][[name]])) d$native[[name]] else d[[dictName]][[name]];
+	value
 }
 Lapply_storeSeeds = function() {
 	# make work standalone and from package
@@ -936,9 +976,17 @@ Try = function(expr, catch = list(), silent = T, setClass = F) {
 #
 
 Lapply_config_default = list(
-	max_depth = 2, parallel_count = 32, parallel_stack = 10,
-	provideChunkArgument = F, offline = F, stateDir = '.',
+	max_depth = 2,
+	parallel_count = 32,
+	parallel_stack = 10,
+	provideChunkArgument = F,
+	offline = F,
+	stateDir = '.',
 	wait_interval = 30,
+	# copy other arguments through a freeze/thaw (necessary for delayed data objects)
+	#copy_arguments = FALSE
+	# copy_environment should be interpreted by the backend to isolate objects per parallel thread,
+	#	i.e. delayed data objects are freshly interpreted per thread (i.e. frozen/thawed)
 	copy_environments = TRUE
 );
 Lapply_backendConfig_default = list(
@@ -1079,10 +1127,11 @@ Lapply_run = function(call_, Lapply_depth, Lapply_config) {
 
 Lapply_recoverState = function(sequence) {
 	Lapply__ = get('Lapply__', envir = parallelize_env);
-	Log(sprintf('Recovering state for sequence %d, depth %d.', Lapply__$sequence, Lapply__$depth), 5);
+	Log(sprintf('Recovering state for sequence %d, depth %d ...', Lapply__$sequence, Lapply__$depth), 5);
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
 	r = freezer$resultsForSequence(sequence);
+	Log('... state recovered', 5);
 	r
 }
 

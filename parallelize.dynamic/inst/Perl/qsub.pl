@@ -26,6 +26,9 @@ my $helpText = <<HELP_TEXT;
 	QSUB_QUEUE		default queue to use in job submissions
 	QSUB_OPTIONS	default options passed to include
 	QSUB_PRIORITY	default priority for jobs
+	QSUB_SOURCEFILES	colon separated list of files to source
+				prior to running the command
+	QSUB_EXCLUDENODES	comma separated lists of nodes not to use
 
 	# Examples:
 	# simply prepend qsub.pl to your command
@@ -68,6 +71,7 @@ OGS_OPTIONS
 
 # Explicit ENV exports
 OGS_EXPORTS
+OGS_SOURCE
 
 # Command
 CMD
@@ -80,8 +84,12 @@ my %Options = (
 	'-e' => 'QSUB_OUT', '-o' => 'QSUB_OUT',
 	'-p' => 'options_PRIORITY',
 	'-l' => 'h_vmem=options_MEMORY',
-	'-pe' => sub { return $_[0]->{Ncpu} == 1? undef: sprintf('BWA %d', $_[0]->{Ncpu}) }
- );
+	'-lhost' => undef,
+	'-pe' => sub { return $_[0]->{Ncpu} == 1? undef: sprintf('BWA %d', $_[0]->{Ncpu}) },
+	'-r' => 'yes',	# job re-runnable
+);
+# allow for double keys
+my %OptionsKeyRenames = ('-lhost' => '-l');
 my %OptionsOnOff = (
 	checkpointing => [ '-ckpt' =>  'check_userdefined']
 );
@@ -101,6 +109,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 
 	# <p> prepare environment
 	my @envKeys = split(/\s*,\s*/, $o->{exports});
+	my @sourceFiles = split(/\s*:\s*/, $o->{sourceFiles});
 	my @envReset = which_indeces(['-'], [@envKeys]);
 	@env = @envKeys[($envReset[0] + 1) .. $#envKeys] if (defined($envReset[0]));
 	my @env = map { "$_=$ENV{$_}" } grep { !/$\s*^/ } @envKeys;
@@ -114,20 +123,27 @@ sub submitCommand { my ($cmd, $o) = @_;
 	# evaluate functions
 	%opts = (%opts, map { ($_, ref($opts{$_}) eq 'CODE'? $opts{$_}->($o): $opts{$_}) } keys %opts);
 	
+	# job dependencies
 	if (defined($o->{waitForJids})) {
 		my @jids = grep { !!$_ } (($o->{waitForJids} =~ m{^\d+\s*(,\s*\d+\s*)*$}so))
 			? split(/\s*,\s*/, $o->{waitForJids})
 			: split("\n", readFile($o->{waitForJids}));
 		$opts{'-hold_jid'} = join(',', @jids) if (!!@jids);
 	}
+	# exclude nodes
+	$opts{'-lhost'} = ('h=!('. join('|', split(/\s*,\s*/, $o->{excludeNodes})). ')')
+		if ($o->{excludeNodes} ne '');
+
 	# <p> construct script
+	# remove empty options
 	%opts = %{dict2defined({%opts})};
-	my @options = map { "#\$ $_ $opts{$_}" } keys %opts;
+	my @options = map { mergeDictToString(\%OptionsKeyRenames, "#\$ $_ $opts{$_}") } keys %opts;
 	my $script = $HEADER;
 	$script = mergeDictToString({
 		'QSUB_OUT' => $o->{outputDir},
 		'OGS_OPTIONS' => join("\n", @options),
 		'OGS_EXPORTS' => join("\n", ((map { "export $_" } @env), $setenv)),
+		'OGS_SOURCE' => join("\n", (map { ". $_" } @sourceFiles)),
 		'CMD' => $cmd
 	}, $script, { sortKeys => 'YES' });
 
@@ -153,9 +169,11 @@ sub submitCommand { my ($cmd, $o) = @_;
 		priority => firstDef($ENV{QSUB_PRIORITY}, 0),
 		tmpPrefix => firstDef($ENV{QSUB_TMPPREFIX}, '/tmp/qsub_pl_'.$ENV{USER}),
 		exports => 'PATH',
+		sourceFiles => firstDef($ENV{QSUB_SOURCEFILES}, ''),
 		setenvsep => '+++',
 		memory => firstDef($ENV{QSUB_MEMORY}, '4G'),
-		Ncpu => 1
+		Ncpu => 1,
+		excludeNodes => firstDef($ENV{QSUB_EXCLUDENODES}, undef),
 	};
 	my $optionsPresent = int(grep { $_ eq '--' } @ARGV) > 0;
 	# <!><i> proper command line splitting
@@ -167,7 +185,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	: GetOptionsStandard($o,
 		'help', 'jid=s', 'jidReplace=s', 'exports:s',
 		'waitForJids=s', 'outputDir=s', 'unquote!', 'queue=s', 'priority=i', 'cmdFromFile=s', 'checkpointing',
-		'memory=s', 'Ncpu=i', 'setenv=s', 'setenvsep=s'
+		'memory=s', 'Ncpu=i', 'setenv=s', 'setenvsep=s', 'sourceFiles=s', 'excludeNodes=s',
 	);
 	# <!> heuristic for unquoting
 	$o->{unquote} = 1 if (!defined($o->{unquote}) && @ARGV == 1);

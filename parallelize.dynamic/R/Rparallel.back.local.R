@@ -47,6 +47,7 @@ setMethod('initialize', 'ParallelizeBackendLocal', function(.Object, config, ...
 setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocal', function(self) { 
 	Log(sprintf('Local dispatch, tmp: %s', self@config$stateDir), 5);
 	parallelize_setEnable(F);
+	Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	Lapply__ = get('Lapply__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
@@ -59,6 +60,53 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocal', function(self) {
 	});
 	freezer$finalizeResults();
 	save(r, file = sprintf('%s/sequence-%d.RData', self@config$stateDir, Lapply__$sequence));
+	#parallelize_setEnable(T);
+	NULL
+});
+
+#' groupd version of local backend
+setClass('ParallelizeBackendLocalGrouped',
+	contains = 'ParallelizeBackendLocal',
+	representation = list(),
+	prototype = list()
+);
+setMethod('initialize', 'ParallelizeBackendLocalGrouped', function(.Object, config, ...) {
+	.Object = callNextMethod(.Object, config = config, ...);
+	.Object
+});
+setMethod('lapply_dispatchFinalize', 'ParallelizeBackendLocalGrouped', function(self) { 
+	Log(sprintf('Local dispatch, tmp: %s', self@config$stateDir), 5);
+	o = Lapply_getConfig();
+	Lapply_setConfigValue(activeDictionary = o$backend);
+	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
+	Lapply__ = get('Lapply__', envir = parallelize_env);
+	freezer = Lapply_executionState__$currentFreezer();
+	idcs = splitListIndcs(freezer$Ncalls(), o$parallel_count);
+
+	r = lapply(1:nrow(idcs), function(job_index__) {
+		mycalls = freezer$callRange(idcs[job_index__, 1], idcs[job_index__, 2]);
+		# force evaluation/restriction of environment
+		mycalls = lapply(mycalls, function(lc) {
+			if (self@config$copy_environments) {
+				lc$fct = environment_eval(lc$fct, functions = FALSE, recursive = FALSE);
+				lc$arguments = freezeObjectsList(lc$arguments);
+			}
+			lc
+		});
+
+		r0 = lapply(mycalls, function(lc) {
+			parallelize_setEnable(F);
+			lapply(lc$elements, function(e) {
+			try(do.call(lc$fct, c(list(e), as.list(lc$arguments))))
+			})
+		});
+		r = c(results = r0, list(from = idcs[job_index__, 1], to = idcs[job_index__, 2]));
+		r
+	});
+	freezer$pushResults(r);
+	#freezer$unlistResults();
+	freezer$finalizeResults();
+	#save(r, file = sprintf('%s/sequence-%d.RData', self@config$stateDir, Lapply__$sequence));
 	parallelize_setEnable(T);
 	NULL
 });

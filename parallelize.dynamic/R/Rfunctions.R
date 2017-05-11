@@ -24,14 +24,40 @@ callWithArgs = function(fctName, args) {
 	eval(parse(text = fhead))
 }
 
-.do.call = function(f, args, restrictArgs = T) {
-	if (restrictArgs) {
-		fargs = names(as.list(args(f)));
-		fargs = fargs[fargs != ''];
-		if (all(fargs != '...')) args = args[which.indeces(fargs, names(args))];
+.do.call = function(f, args, restrictArgs = T, usePositional = T, restrictPositional = F) {
+	# <p> function arguments
+	fargs = names(as.list(args(f)));
+	# remove spurious arguments
+	fargs = fargs[fargs != ''];
+
+	if (restrictArgs && all(fargs != '...')) {
+		idcs = which.indeces(fargs, names(args));
+		if (usePositional) {
+			positional = which(names(args) == '');
+			Npositional = (length(fargs) - length(idcs));
+			if (!restrictPositional && length(positional) > Npositional)
+				stop(".do.call: unmachted positional arguments");
+			idcs = c(idcs, positional[1:Npositional]);
+		}
+		args = args[sort(idcs)];
 	}
 	do.call(f, args)
 }
+
+callDelegate = function(functionBase, delegation, args, restrictArgs = T) {
+	f = get(Sprintf('%{functionBase}s%{delegation}u'));
+	.do.call(f, args, restrictArgs = restrictArgs)
+}
+
+CallDelegate = function(functionBase, delegation, ..., restrictArgs = T) {
+	callDelegate(functionBase, delegation, args = list(...), restrictArgs = T)
+}
+
+#
+#	<p> generic functions
+#
+
+Identity = function(...)list(...)
 
 #
 #	<p> benchmarking

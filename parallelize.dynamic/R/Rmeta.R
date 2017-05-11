@@ -1,6 +1,62 @@
 #
 #	Rmeta.R
 #Wed Jun  3 15:11:27 CEST 2015
+#Mon 27 Jun 2005 10:49:06 AM CEST
+#system("cd ~/src/Rprivate ; ./exportR.sh");
+#system("cd ~/src/Rprivate ; ./exportR.sh"); source("RgenericAllRaw.R"); source("Rgenetics.R"); loadLibraries();
+#system('WD=`pwd` ; cd ~/src/Rprivate ; ./exportR.sh ; cp RgenericAllRaw.R $WD ; cd $WD');
+
+#
+#	<p> Meta-helpers
+#
+
+#
+#	level dependend logging
+# moved from Rsystem.R to break dependency cylce (22.3.2017)
+#Global..Log..Level = 4;
+#Default..Log..Level = 4;
+#assign(Default..Log..Level, 4, envir = .GlobalEnv);
+Log_env__ <- new.env();
+assign('DefaultLogLevel', 4, envir = Log_env__);
+
+#' Log a message to stderr.
+#' 
+#' Log a message to stderr. Indicate a logging level to control verbosity.
+#' 
+#' This function prints a message to stderr if the condition is met that a
+#' global log-level is set to greater or equal the value indicated by
+#' \code{level}. \code{Log.level} returns the current logging level.
+#' 
+#' @aliases Log Log.setLevel Log.level
+#' @param o Message to be printed.
+#' @param level If \code{Log.setLevel} was called with this value, subsequent
+#' calls to \code{Log} with values of \code{level} smaller or equal to this
+#' value will be printed.
+#' @author Stefan Böhringer <r-packages@@s-boehringer.org>
+#' @seealso \code{\link{Log.setLevel}}, ~~~
+#' @keywords ~kwd1 ~kwd2
+#' @examples
+#' 
+#' 	Log.setLevel(4);
+#' 	Log('hello world', 4);
+#' 	Log.setLevel(3);
+#' 	Log('hello world', 4);
+#' 
+Log = function(o, level = get('DefaultLogLevel', envir = Log_env__), doPrint = NULL) {
+	if (level <= get('GlobalLogLevel', envir = Log_env__)) {
+		cat(sprintf("R %s: %s\n", date(), as.character(o)));
+		if (!is.null(doPrint)) print(doPrint);
+	}
+}
+Logs = function(o, level = get('DefaultLogLevel', envir = Log_env__), ..., envir = parent.frame()) {
+	Log(Sprintf(o, ..., envir = envir), level = level);
+}
+
+Log.level = function()get('GlobalLogLevel', envir = Log_env__);
+Log.setLevel = function(level = get('GlobalLogLevel', envir = Log_env__)) {
+	assign("GlobalLogLevel", level, envir = Log_env__);
+}
+Log.setLevel(4);	# default
 
 
 #
@@ -95,6 +151,19 @@ environment_evaled = function(f, functions = FALSE, recursive = FALSE) {
 environment_eval = function(f, functions = FALSE, recursive = FALSE) {
 	environment(f) = environment_evaled(f, functions = functions, recursive = recursive);
 	f
+}
+
+#
+#	Parsing, evaluation
+#
+
+Parse = function(text, ...) {
+	parse(text = text, ...)
+}
+Eval = function(e, ..., envir = parent.frame(), autoParse = T) {
+	if (autoParse && is.character(e)) e = Parse(e, ...);
+	eval(e, envir = envir)
+	
 }
 
 #
@@ -351,7 +420,152 @@ encapsulateCall = function(.call, ..., envir__ = environment(.call), do_evaluate
 	call_
 }
 
+# object: list with single element
+freezeObject = function(object, env) {
+	dir = attr(env, 'path');
+	name = names(object);
+	file = Sprintf('%{dir}s/%{name}s.Rdata');
+print(file);
+	save(list = name, envir = as.environment(object), file = file);
+	eval(substitute(delayedAssign(OBJECT, get(load(file = FILE)[1])),
+		list(OBJECT = name, FILE = file)), envir = env);
+}
+freezeObjectsList = function(objects, pos = 2, parent = parent.frame()) {
+	td = tempdir();
+	env = new.env(parent = parent);
+	attr(env, "path") = td;
+
+	if (any(names(objects) == '')) stop('Only named objects can be frozen. Check for naming conflicts.');
+	#n = names(objects) == '';
+	#if (sum(n) > 0) names(objects)[n] = paste('ARG_ANON__', 1:sum(n), sep = '');
+	nlapply(objects, function(n)freezeObject(objects[n], env = env));
+	env
+}
+freezeObjects = function(..., pos = 2, parent = parent.frame()) {
+	freezeObjectsList(list(...), pos = pos)
+}
 
 #
 #	</p> freeze/thaw functions
 #
+
+#
+#	<p> delayed loading
+#
+
+# missing2null
+#	needed to work around callSuper's refusal to pass missing arguments
+m2n = function(e)(if (missing(e)) NULL else e)
+
+DelayedDataRefClass = setRefClass('DelayedDataRef',
+	fields = list(
+		# heuristics to correct numerical index
+		'initialIndex' = 'list',
+		'Data' = 'ANY'
+	),
+	methods = list(
+
+	initialize = function(vivifier, ...) {
+		.self
+	},
+	vivify = function(i, j, ...) {
+		initialIndex <<- list(i = m2n(i)[1], j = m2n(j)[1]);
+	},
+	correctIndexI = function(i) { i },
+	correctIndexJ = function(j) { j },
+	at = function(i, j, ..., drop = TRUE) {
+		if (class(Data) == 'uninitializedField') .self$vivify(i, j, ...);
+		# <!> only handles two dimensional case
+		# <!> does not cover all corner cases
+		# <i> correct index, if numeric, if necessary
+		if (!missing(i) && is.numeric(i)) i = correctIndexI(i);
+		if (!missing(j) && is.numeric(j)) j = correctIndexJ(j);
+
+		# can we fetch requested values; assume all indexed values present?
+		if ((!missing(i) && (
+				(is.numeric(i) && any(abs(i) > nrow(Data))) ||
+				(is.character(i) && !all(i %in% dimnames(Data)[[1]]))
+			)) ||
+			(!missing(j) && (
+				(is.numeric(j) && any(abs(j) > ncol(Data))) ||
+				(is.character(j) && !all(j %in% dimnames(Data)[[2]]))
+			))) {
+			stop('delayed object could not provide requested values');
+		}
+		# <i> re-vivify
+		r = Data[i, j, ..., drop = drop];
+		r
+	}
+
+	)
+);
+DelayedDataRefClass$accessors(names(DelayedDataRefClass$fields()));
+
+DelayedDataLookupClass = setRefClass('DelayedDataLookup',
+	fields = list(
+		'path' = 'character',
+		'lookup' = 'logical'
+	),
+	contains = 'DelayedDataRef',
+	methods = list(
+
+	initialize = function(path, lookup = TRUE, ...) {
+		callSuper(...);
+		.self$initFields(path = path, lookup = lookup);
+		.self
+	},
+	vivify = function(i, j, ..., logLevel__ = 4) {
+		callSuper(i, j, ...);
+		# this depends on package parallelize.dynamic
+		if (lookup) {
+			path0 = path;
+			path <<- parallelize_lookup(path);
+			Logs('Vivifying name "%{path0}s" from "%{path}s"', logLevel = logLevel__);
+		}
+	}
+
+	)
+);
+DelayedDataLookupClass$accessors(names(DelayedDataLookupClass$fields()));
+
+DelayedDataLoadClass = setRefClass('DelayedDataLoad',
+	fields = list(
+		'transform' = 'function'
+	),
+	contains = 'DelayedDataLookup',
+	methods = list(
+
+	initialize = function(path, lookup = TRUE, ...) {
+		callSuper(path, lookup, ...);
+		.self$initFields();
+		.self
+	},
+	vivify = function(i, j, ...) {
+		callSuper(...);
+		Data <<- get(load(path)[1]);
+		if (Nif(transform)) Data <<- transform(Data);
+	}
+	)
+);
+DelayedDataLoadClass$accessors(names(DelayedDataLoadClass$fields()));
+
+setClass('DelayedData', representation(ref = 'DelayedDataRef'));
+setMethod('initialize', 'DelayedData', function(.Object, ref) {
+	.Object = callNextMethod(.Object);
+	.Object@ref = ref;
+	.Object
+});
+DelayedDataAt = function(x, i, j, ..., drop = TRUE)x@ref$at(i, j, ..., drop = drop)
+setMethod('[', signature('DelayedData', 'ANY', 'ANY', 'ANY'), DelayedDataAt);
+
+delayedLoadFromPath = function(name, transform = NULL, ..., logLevel = 4, class = 'DelayedDataLoad') {
+	ref = new(class,  path = name, lookup = T, transform = transform, ...);
+	v = new('DelayedData', ref = ref);
+	v
+}
+
+#
+#	</p> delayed loading
+#
+
+Deparse = function(o)join(deparse(o));

@@ -227,6 +227,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 
 	ogs_frozen_call__ = function(listcalls) {
 		parallelize_setEnable(F);
+		Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 		lapply(listcalls, function(lc) {
 			lapply(lc$elements, function(e)
 				try(do.call(lc$fct, c(list(e), lc$arguments)))

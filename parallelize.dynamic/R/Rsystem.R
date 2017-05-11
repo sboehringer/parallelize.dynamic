@@ -7,6 +7,7 @@
 #
 
 # <!><N> works only on atomic path
+# <!> 5.1.2016: trailing slash leads to basename of ""
 splitPath = function(path, removeQualifier = T, ssh = F, skipExists = F) {
 	if (is.null(path)) return(NULL);
 	if (removeQualifier) {
@@ -31,23 +32,32 @@ splitPath = function(path, removeQualifier = T, ssh = F, skipExists = F) {
 	# take everything before ext and handle possible absence of '.'
 	#base = substr(r.base, 1, r[1] - 1 - (ifelse(substr(r.base, r[1] - 1, r[1] - 1) == '.', 1, 0)));
 	# reduce to file.ext
-	base = basename(path);
+	Nchar = nchar(path);
+	if (Nchar != 0 && substr(path, Nchar, Nchar) == '/') {
+		base = '';
+		dir = substr(path, 1, Nchar - 1);
+	} else {
+		base = basename(path);
+		dir = dirname(path);
+	}
+	# base as yet still contains the file extension
+	file = base;
 	# chop off extension if present
 	if (length(fetchRegexpr('\\.', base)) > 0) base = fetchRegexpr('\\A.*(?=\\.)', base);
 	
 	#pieces = regexpr(re, path, perl = T);
 	pieces = fetchRegexpr('([^.]+)', path);
-	isAbsolute = nchar(path) != 0 && substr(path, 1, 1) == '/';
+	isAbsolute = Nchar != 0 && substr(path, 1, 1) == '/';
 	# <N> disk is accessed
 	exists = if (!skipExists) File.exists(path, host = sshm$userhost, ssh = F) else NA;
 	nonempty = exists && (file.info(path)$size > 0);
 	ret = list(
-		dir = dirname(path),
+		dir = dir,
 		base = base,
 		path = path,
-		fullbase = sprintf("%s/%s", dirname(path), base),
+		fullbase = sprintf("%s/%s", dir, base),
 		ext = ext,
-		file = basename(path),
+		file = file,
 		isAbsolute = isAbsolute,
 		absolute = if (isAbsolute) path else sprintf('%s/%s', getwd(), path),
 		# fs properties
@@ -97,7 +107,8 @@ dirList = function(dir, regex = T, case = T) {
 	}
 	files
 }
-
+list_files_with_exts = function(path, exts, full.names = T)
+	list.files(path, pattern = Sprintf('.(%{Exts}s)$', Exts = join(exts, '|')), full.names = full.names);
 
 write.csvs = function(t, path, semAppend = "-sem", ...) {
 	s = splitPath(path);
@@ -260,6 +271,9 @@ fileName = function(output, extension = NULL, subtype = NULL) {
 .globalOutputDefault = .globalOutput = list(prefix = '', tag = NULL, tagFirst = F);
 GlobalOutput_env__ = new.env();
 # .fn.set(prefix = 'results/predictionTesting-')
+# @par prefix character, start path name with this character string
+# @par tag character, add dashed string to all files (defaults to appending to filename)
+# @par tagFirst boolean, put tag as a prefix to the file name instead
 .fn.set = function(...) {
 	.globalOutput = merge.lists(.globalOutputDefault, list(...));
 	assign('.globalOutput', .globalOutput, envir = GlobalOutput_env__);
@@ -338,53 +352,15 @@ handleTriggers = function(o, triggerDefinition = NULL) {
 
 }
 
-
 #
-#	level dependend logging
+#	<p> extended system call
 #
-#Global..Log..Level = 4;
-#Default..Log..Level = 4;
-#assign(Default..Log..Level, 4, envir = .GlobalEnv);
-Log_env__ <- new.env();
-assign('DefaultLogLevel', 4, envir = Log_env__);
 
-#' Log a message to stderr.
-#' 
-#' Log a message to stderr. Indicate a logging level to control verbosity.
-#' 
-#' This function prints a message to stderr if the condition is met that a
-#' global log-level is set to greater or equal the value indicated by
-#' \code{level}. \code{Log.level} returns the current logging level.
-#' 
-#' @aliases Log Log.setLevel Log.level
-#' @param o Message to be printed.
-#' @param level If \code{Log.setLevel} was called with this value, subsequent
-#' calls to \code{Log} with values of \code{level} smaller or equal to this
-#' value will be printed.
-#' @author Stefan Böhringer <r-packages@@s-boehringer.org>
-#' @seealso \code{\link{Log.setLevel}}, ~~~
-#' @keywords ~kwd1 ~kwd2
-#' @examples
-#' 
-#' 	Log.setLevel(4);
-#' 	Log('hello world', 4);
-#' 	Log.setLevel(3);
-#' 	Log('hello world', 4);
-#' 
-Log = function(o, level = get('DefaultLogLevel', envir = Log_env__)) {
-	if (level <= get('GlobalLogLevel', envir = Log_env__)) {
-		cat(sprintf("R %s: %s\n", date(), as.character(o)));
-	}
-}
-Logs = function(o, level = get('DefaultLogLevel', envir = Log_env__), ..., envir = parent.frame()) {
-	Log(Sprintf(o, ..., envir = envir), level = level);
-}
+# Example of patterns:
+# 	System(cmd, 5, patterns = c('cwd', 'qsub', 'ssh'),
+# 		cwd = sp$path, ssh_host = sp$userhost,
+# 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory);
 
-Log.level = function()get('GlobalLogLevel', envir = Log_env__);
-Log.setLevel = function(level = get('GlobalLogLevel', envir = Log_env__)) {
-	assign("GlobalLogLevel", level, envir = Log_env__);
-}
-Log.setLevel(4);	# default
 
 .System.fileSystem = list(
 	#tempfile = function(prefix, ...)tempfile(splitPath(prefix)$base, tmpdir = splitPath(prefix)$dir, ...),
@@ -446,6 +422,8 @@ Log.setLevel(4);	# default
 #	a system call (c.f. privatePerl/TempFilenames::System)
 #
 System_env__ <- new.env();
+assign(".system.doLogOnly", FALSE, envir = System_env__);
+
 System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	doLog = TRUE, printOnly = NULL, return.output = F,
 	pattern = NULL, patterns = NULL, ..., return.cmd = F) {
@@ -548,11 +526,14 @@ Snow_cluster_env__ = new.env();
 specifyCluster = function(localNodes = 8, sourceFiles = NULL, cfgDict = list(), hosts = NULL,
 	.doSourceLocally = F, .doCopy = T, splitN = NULL, reuseCluster = F, libraries = NULL,
 	evalEnvironment = F) {
+	#<!> might not be available/outdated
+	Require('parallel');
 	cfg = merge.lists(.defaultClusterConfig,
 		cfgDict,
 		list(splitN = splitN, reuseCluster = reuseCluster, evalEnvironment = evalEnvironment),
 		list(local = F, source = sourceFiles, libraries = libraries, hosts = (if(is.null(hosts))
-			list(list(host = "localhost", count = localNodes, type = "PSOCK", environment = list())) else
+			list(list(host = "localhost", count = localNodes, type = "PSOCK",
+				environment = list(setwd = getwd()))) else
 				hosts)
 	));
 	assign(".globalClusterSpecification", cfg, envir = Snow_cluster_env__);
@@ -573,16 +554,14 @@ specifyCluster = function(localNodes = 8, sourceFiles = NULL, cfgDict = list(), 
 	}
 }
 
-#<!> might not be available/outdated
-library('parallel');
 # l: list, f: function, c: config
 # <i><!> test clCfg$reverseEvaluationOrder before uncommenting
 clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 	#if (clCfg$reverseEvaluationOrder) l = rev(l);
 
 	# only support SOCK type right now <!><i>
-	hosts = unlist(sapply(clCfg$hosts, function(h){
-		if (h$type == "PSOCK") rep(h$host, h$count) else NULL}));
+	hosts = as.vector(unlist(sapply(clCfg$hosts, function(h){
+		if (h$type == "PSOCK") rep(h$host, h$count) else NULL})));
 	master = ifelse(all(hosts == "localhost"), "localhost", ipAddress("eth0"));
 	establishEnvironment = T;
 	cl = if (clCfg$reuseCluster) {
@@ -599,7 +578,8 @@ clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 
 	# <p> establish node environment
 	envs = listKeyValue(list.key(clCfg$hosts, "host"), list.key(clCfg$hosts, "environment", unlist = F));
-	Log(clCfg, 7);
+	if (Log.level() >= 7) print(clCfg);
+
 	if (establishEnvironment) r = clusterApply(cl, hosts, function(host, environments, cfg){
 		env = environments[[host]];
 		if (!is.null(env$setwd)) setwd(env$setwd);
@@ -761,7 +741,7 @@ writeFile = function(path, str, mkpath = F, ssh = F) {
 isURL = function(path)(length(grep("^(ftp|http|https|file)://", path)) > 0L)
 
 Source_url = function(url, ...) {
-	require('RCurl');
+	Require('RCurl');
 	request = getURL(url, followlocation = TRUE,
 		cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl"));
 	tf = tempfile();
@@ -780,14 +760,68 @@ Source = function(file, ...,
 	})
 }
 
+#
+#	<p> helper functions readTable/writeTable
+#
+
+compressPathBz2 = function(pathRaw, path, doRemoveOrig = TRUE) {
+	cmd = Sprintf("cat %{pathRaw}q | bzip2 -9 > %{path}q");
+	r = System(cmd, 5);
+	if (doRemoveOrig && !get('.system.doLogOnly', envir = System_env__)) file.remove(pathRaw);
+	r
+}
+compressPath = function(pathRaw, path, extension = NULL, doRemoveOrig = TRUE) {
+	if (is.null(extension)) return(path);
+	compressor = get(Sprintf('compressPath%{extension}u'));
+	r = compressor(pathRaw, path, doRemoveOrig = doRemoveOrig);
+	r
+}
+decompressPathBz2 = function(path, pathTmp, doRemoveOrig = FALSE) {
+	cmd = Sprintf("cat %{path}q | bunzip2 > %{pathTmp}q");
+	r = System(cmd, 5);
+	if (doRemoveOrig && !get('.system.doLogOnly', envir = System_env__)) file.remove(pathRaw);
+	r
+}
+decompressPath = function(path, pathTmp, extension = NULL, doRemoveOrig = FALSE) {
+	if (is.null(extension)) return(path);
+	decompressor = get(Sprintf('decompressPath%{extension}u'));
+	r0 = decompressor(path, pathTmp, doRemoveOrig = doRemoveOrig);
+	r = list(destination = pathTmp, pathOrig = path, return = r0);
+	r
+}
+
+compressedConnectionBz2 = function(path, mode = '') {
+	#r = Sprintf('%{path}s.bz2');
+	bzfile(path, open = mode)
+}
+compressedConnectionGz = function(path, mode = '') {
+	gzfile(path, open = mode)
+}
+compressedConnection = function(path, extension = NULL, mode = '') {
+	if (is.null(extension)) return(path);
+	compressor = get(Sprintf('compressedConnection%{extension}u'));
+	compressor(path, mode = mode)
+}
+compressedConnectionPath = function(conn) {
+	if ('connection' %in% class(conn)) summary(conn)$description else conn
+}
+
+#
+#	<p> readTable
+#
+
 # complete: return only complete data with respect to specified colums
 # NA: specify 'NA'-values
 readTableSepMap = list(T = "\t", S = ' ', C = ',', `;` = ';', `S+` = '');
 optionParser = list(
 	SEP = function(e)readTableSepMap[[e]],
+	DEC = identity,
 	QUOTE = function(e)(if (e == 'F') '' else e),
 	HEADER = function(e)list(T = T, F = F)[[e]],
+	ROW.NAMES = function(e)list(T = T, F = F)[[e]],
 	NAMES = function(e)splitString(';', e),
+	FACTORS = function(e)splitString(';', e),
+	DATE = function(e)splitString(';', e),
 	PROJECT = function(e)splitString(';', e),
 	`NA` = function(e)splitString(';', e),
 	complete = function(e)splitString(';', e),
@@ -812,7 +846,9 @@ optionParser = list(
 		unlist.n(r, 1)
 	},
 	COLNAMESFILE = identity,
-	SHEET = as.integer
+	SHEET = as.integer,
+	SKIP = as.integer,
+	DELETE = Eval
 );
 
 splitExtendedPath = function(path) {
@@ -827,31 +863,41 @@ splitExtendedPath = function(path) {
 	}
 	r = list(path = path, options = options)
 }
+path2simple = function(pathes)sapply(pathes, function(path)splitExtendedPath(path)$path);
 
 readTable.ods = function(path, options = NULL) {
-	require('readODS');
+	Require('readODS');
 	sheet = firstDef(options$SHEET, 1);
-	read.ods(path)[[sheet]];
+	read_ods(path, sheet = sheet, col_names = options$HEADER);
 }
 
 # <!> changed SEP default "\t" -> ",", 20.5.2015
 #readTable.csv.defaults = list(HEADER = T, SEP = "\t", `NA` = c('NA'), QUOTE = '"');
-readTable.csv.defaults = list(HEADER = T, SEP = ",", `NA` = c('NA'), QUOTE = '"');
-readTable.csv = function(path, options = readTable.csv.defaults, headerMap = NULL, setHeader = NULL, ...) {
+readTable.csv.defaults = list(HEADER = T, SEP = ",", `NA` = c('NA'), QUOTE = '"', SKIP = 0);
+readTable.txt = readTable.csv = function(
+	path, options = readTable.csv.defaults, headerMap = NULL, setHeader = NULL, ...) {
+
 	options = merge.lists(readTable.csv.defaults, options);
 	t = read.table(path, header = options$HEADER, sep = options$SEP, as.is = T,
-		na.strings = options$`NA`, comment.char = '', quote = options$QUOTE, ...);
+		na.strings = options$`NA`, comment.char = '', quote = options$QUOTE, skip = options$SKIP, ...);
 	if (!is.null(options$NAMES)) names(t)[1:length(options$NAMES)] = options$NAMES;
 	if (!is.null(headerMap)) names(t) = vector.replace(names(t), headerMap);
 	if (!is.null(setHeader)) names(t) =  c(setHeader, names(t)[(length(setHeader)+1): length(names(t))]);
+	if (!is.null(options$FACTORS)) t = Df_(t, as_factor = options$FACTORS);
 	t
 }
 
-readTable.sav = function(path, options = NULL, headerMap = NULL, stringsAsFactors = F) {
-	require('foreign');
+spssDate = function(date, tz = 'MET', spss.origin = as.POSIXct('2003/02/11', tz = tz) - 13264300800)
+	(spss.origin + date)
+
+readTable.SAV = readTable.sav = function(path, options = NULL, headerMap = NULL, stringsAsFactors = F) {
+	Require('foreign');
 	# read file
-	r = read.spss(path);
-	as.data.frame(r, stringsAsFactors = stringsAsFactors)
+	r0 = read.spss(path);
+	r1 = as.data.frame(r0, stringsAsFactors = stringsAsFactors);
+	if (notE(options$DATE))
+		r1[, options$DATE] = do.call(data.frame, lapply(r1[, options$DATE, drop = F], spssDate));
+	r1
 }
 
 readTable.RData = function(path, options = NULL, headerMap = NULL) {
@@ -860,23 +906,83 @@ readTable.RData = function(path, options = NULL, headerMap = NULL) {
 	t
 }
 
+readTable.xls = function(path, options = NULL, ..., row.names = NULL, sheet = 1) {
+	Require('gdata', quietly = TRUE);
+	read.xls(path, sheet = sheet, ..., row.names = row.names, verbose = FALSE);
+}
+
+tableFunctionConnect = c('csv', 'RData');
+
+tableFunctionForPathMeta = function(path, template = 'readTable.%{ext}s', default = readTable.csv,
+	forceReader = NULL) {
+	sp = splitPath(path);
+	compression = NULL;
+	tmpFile = NULL;
+	if (firstDef(forceReader, sp$ext) %in% c('bz2', 'gz')) {
+		compression = sp$ext;
+		sp = splitPath(sp$fullbase);
+		tmpFile = Sprintf('%{file}s.%{ext}s', file = tempfile(), ext = sp$ext);
+	}
+	name = Sprintf(template, ext = firstDef(forceReader, sp$ext));
+	f = if (exists(name)) get(name) else default;
+	r = list(
+		fct = f, name = name, ext = sp$ext,
+		compression = compression, tempfile = tmpFile, path = path
+	);
+	r
+}
+tableFunctionForPath = function(path, template = 'readTable.%{ext}s',
+	default = readTable.csv, forceReader = NULL) {
+	tableFunctionForPathMeta(path, template, default, forceReader)$fct
+}
+
+# forceReader: force readerFunction
+tableFunctionForPathReader = function(path, template = 'readTable.%{ext}s', default = readTable.csv,
+	forceReader = NULL) {
+	m = m0 = tableFunctionForPathMeta(path, template = 'readTable.%{ext}s', default = default, forceReader);
+	if (!is.null(m$compression)) {
+		path = if (m0$compression %in% tableFunctionConnect)
+			compressedConnection(m0$path, m0$compression) else
+			decompressPath(m0$path, m0$tempfile, m0$compression)$destination
+		m = merge.lists(m0, list(path = path));
+	}
+	m
+}
+
+readTable.defaultOptions = list(HEADER = TRUE);
 # <!> as of 23.5.2014: headerMap after o$NAMES assignment
+# <i> use tableFunctionForPath
 readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, colnamesFile = NULL, ...,
-	as_factor = NULL, stringsAsFactors = F) {
-	path = join(path, '');
-	o = list();
+	as_factor = NULL, stringsAsFactors = F, defaultReader = readTable.csv, doRemoveTempFile = TRUE,
+	forceReader = NULL, ssh = F) {
+	# <p> preparation
+	pathOrig = path = join(path, '');
+	o = readTable.defaultOptions;
 	if (extendedPath) {
 		r = splitExtendedPath(path);
 		path = r$path;
-		o = r$options;
+		o = merge.lists(o, r$options);
 	}
-	sp = splitPath(path);
-	r = if (autodetect && !is.null(sp$ext)) {
-		if (sp$ext %in% c('bz2', 'gz')) sp = splitPath(sp$fullbase);
-		name = sprintf('readTable.%s', sp$ext);
-		f = if (exists(name)) get(name) else readTable.csv;
-		f(path, options = o, ...)
-	} else readTable.csv(path, options = o, ...);
+
+	sp = splitPath(path, ssh = ssh);
+	# <p> copy remote files
+	if (sp$host != '') {
+		tmpPath = tempFileName('readTable', sp$ext, inRtmp = T);
+		File.copy(path, tmpPath);
+		sp = splitPath(tmpPath);
+		path = tmpPath;
+	}
+	# <p> read table raw
+	reader = if (autodetect && !is.null(sp$ext)) 
+		tableFunctionForPathReader(path, 'readTable.%{ext}s', readTable.csv, forceReader) else
+		list(fct = defaultReader, path = path);
+	r = reader$fct(reader$path, options = o, ...);
+
+	# <p> cleanup
+	if (doRemoveTempFile && !get('.system.doLogOnly', envir = System_env__) && !is.null(reader$tempfile))
+		file.remove(reader$tempfile);
+
+	# <p> table transformations
 	if (!is.null(o$NAMES) && length(o$NAMES) <= ncol(r)) names(r)[1:length(o$NAMES)] = o$NAMES;
 	colnamesFile = firstDef(o$COLNAMESFILE, colnamesFile);
 	headerMap = c(headerMap, o$HEADERMAP);
@@ -885,10 +991,140 @@ readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, c
 		ns = read.table(colnamesFile, header = F, as.is = T)[, 1];
 		names(r)[1:length(ns)] = ns;
 	}
-	if (!is.null(o$PROJECT)) r = r[, o$PROJECT];
+	if (!is.null(o$PROJECT)) r = r[, o$PROJECT, drop = FALSE];
 	if (!is.null(o$complete)) r = r[apply(r[, o$complete], 1, function(e)!any(is.na(e))), ];
 	if (!is.null(o$CONST)) { for (n in names(o$CONST)) r[[n]] = o$CONST[[n]]; }
 	if (!is.null(as_factor)) r = Df_(r, as_factor = as_factor);
+	if (!is.null(o$DELETE)) r = r[-o$DELETE, , drop = F];
+	r
+}
+
+#
+#	<p> writeTable
+#
+
+writeTable.defaults = list(
+	global = list(
+	SEP = ' ', DEC = '.',
+	ROW.NAMES = FALSE,
+	HEADER = TRUE,
+	QUOTE = TRUE
+	),
+	csv = list(SEP = ',', DEC = '.'),
+	csv2 = list(SEP = ';', DEC = ',')
+);
+writeTable.table = function(dataFrame, path, ..., doCompress = NULL, row.names = TRUE, options = list()) {
+	o = merge.lists(writeTable.defaults$global, list(ROW.NAMES = row.names), options);
+	conn = compressedConnection(path, doCompress, mode = 'w');
+	with(o, write.table(dataFrame, file = conn, ...,
+		row.names = ROW.NAMES, col.names = HEADER, sep = SEP, quote = (QUOTE != '')));
+}
+
+writeTable.compression = function(object, path, doCompress = NULL, row.names = TRUE,
+	doRemoveOrig = TRUE, options = list(), writerFunction) {
+
+	pathRaw = if (!is.null(doCompress)) Sprintf('%{path}s_raw_') else path;
+	writerFunction(object, pathRaw, row.names = row.names, options = options);
+	r1 = compressPath(pathRaw, path, doCompress, doRemoveOrig);
+	r1
+}
+
+writeTable.sav_raw = function(object, path, doCompress = NULL, row.names = TRUE, doRemoveOrig = TRUE,
+	options = list()) {
+	# <p> required package
+	options( java.parameters = "-Xmx4g" );
+	Require('haven');
+
+	# sanitize row names
+	d0 = as.data.frame(object);
+	names(d0) = gsub("[.\\$@#]", "\\_", names(d0))
+	write_sav(d0, path);
+}
+
+writeTable.sav = function(object, path, doCompress = NULL, row.names = TRUE,
+	doRemoveOrig = TRUE, options = list()) {
+	writeTable.compression(object, path, writerFunction = writeTable.sav_raw,
+		doCompress = doCompress, row.names = row.names, doRemoveOrig = doRemoveOrig, options = options);
+}
+
+writeTable.xlsx = function(object, path, doCompress = NULL, row.names = TRUE,
+	doRemoveOrig = TRUE, options = list()) {
+	options( java.parameters = "-Xmx4g" );
+	Require('xlsx');
+	r = path;
+	# <p> save non-data frame-constrained column names
+	colNames = if (is.matrix(object)) dimnames(object)[[2]] else NULL;
+	dataFrame = as.data.frame(object);
+	r0 = pathRaw = if (!is.null(doCompress)) Sprintf('%{path}s_raw_') else path;
+
+	# <p> construct spreadsheet
+	wb = createWorkbook();
+	cs = CellStyle(wb, dataFormat = DataFormat("#,##0.00"));
+	styles = listKeyValue(1:ncol(dataFrame), rep.list(cs, ncol(dataFrame)));
+    sheet = createSheet(wb, 'dataFrame')
+    addDataFrame(dataFrame, sheet, col.names = TRUE, row.names = row.names, 
+        startRow = 1, startColumn = 1, colStyle = styles, colnamesStyle = NULL, 
+        rownamesStyle = NULL);
+    saveWorkbook(wb, pathRaw);
+
+    #r0 = write.xlsx2(dataFrame, file = pathRaw, row.names = row.names, showNA = FALSE,
+	#	colStyle = styles);
+	r1 = compressPath(pathRaw, path, doCompress, doRemoveOrig);
+	r0
+}
+
+writeTable.xls = function(object, path, doCompress = NULL, row.names = TRUE,
+	doRemoveOrig = TRUE, options = list()) {
+	Require('WriteXLS');
+	r = path;
+	dataFrame = as.data.frame(object);
+	pathRaw = if (!is.null(doCompress)) Sprintf('%{path}s_raw_') else path;
+	r0 = WriteXLS(dataFrame, ExcelFileName = pathRaw, row.names = row.names);
+	r1 = compressPath(pathRaw, path, doCompress, doRemoveOrig);
+	r0
+}
+
+writeTable.csv2 = writeTable.csv = function(dataFrame, path, ..., doCompress = NULL,
+	row.names = TRUE, options = list()) {
+	conn = compressedConnection(path, doCompress, mode = 'w');
+	with(options, write.table(dataFrame, file = conn, ...,
+		sep = SEP, col.names = HEADER, row.names = ROW.NAMES, quote = (QUOTE != ''), dec = DEC));
+}
+# doCompress = 'bz2' to write bz2
+# <i><!> determine from path
+writeTableRaw = function(object, path, ..., doCompress = NULL, row.names = TRUE, autodetect = TRUE,
+	defaultWriter = writeTable.csv, options = list()) {
+	sp = splitPath(path);
+	if (is.null(doCompress) && !is.null(sp$ext) && sp$ext %in% c('bz2', 'gz')) {
+		doCompress = sp$ext;
+	}
+	writer = if (autodetect && !is.null(sp$ext)) 
+		tableFunctionForPath(path, 'writeTable.%{ext}s', writeTable.csv) else defaultWriter;
+	if (is.null(writer))
+		stop(Sprintf("Writing table to extension '%{ext}s' not supported", ext = sp$ext));
+	options = merge.lists(writeTable.defaults$global,
+		writeTable.defaults[[firstDef(sp$ext, 'global')]], options);
+	r0 = writer(object, path = path, ..., doCompress = doCompress, row.names = row.names, options = options);
+	r = list(path = path, return = r0);
+	r
+}
+
+writeTable = function(object, path, ..., doCompress = NULL, row.names = TRUE, autodetect = TRUE,
+	defaultWriter = writeTable.csv, simplify = TRUE, extendedPath = TRUE) {
+	o = list();
+	if (extendedPath) {
+		r = splitExtendedPath(path);
+		path = r$path;
+		o = r$options;
+		defaultWriter = writeTable.table;
+	}
+	if (!is.null(o$PROJECT)) object = object[, o$PROJECT, drop = FALSE];
+	r = lapply(path, function(p)
+		writeTableRaw(object, p, ...,
+			doCompress = doCompress, row.names = row.names, autodetect = autodetect,
+			defaultWriter = defaultWriter, options = o)
+	);
+	if (simplify && length(path) == 1) r = r[[1]];
 	r
 }
 
@@ -952,7 +1188,7 @@ stdOutFromCall = function(call_) {
 #
 
 md5sumString = function(s, prefix = 'md5generator') {
-	require('tools');
+	Require('tools');
 	path = tempfile('md5generator');
 	writeFile(path, s);
 	md5 = avu(md5sum(path));
@@ -1067,8 +1303,8 @@ reDoc = function(package = 'parallelize.dynamic',
 #
 
 createModule = function(name, libpathes = c(), headers = c(), output = NULL) {
-	require('Rcpp');
-	require('inline');
+	Require('Rcpp');
+	Require('inline');
 	dirs = sapply(libpathes, function(e)splitPath(e)$dir);
 	libs = sapply(libpathes, function(e)fetchRegexpr('(?<=lib)(.*)(?=.so)', splitPath(e)$file));
 	.libPaths(c(.libPaths(), dirs));
@@ -1101,7 +1337,7 @@ createModule = function(name, libpathes = c(), headers = c(), output = NULL) {
 }
 
 activateModule = function(path) {
-	require('Rcpp');
+	Require('Rcpp');
 	module_descriptor = get(load(sprintf('%s/module.RData', path))[1]);
 	r = lapply(module_descriptor$libs, function(lib)try(dyn.unload(sprintf('%s/%s', path, lib)), silent = T));
 	r = lapply(module_descriptor$libs, function(lib)dyn.load(sprintf('%s/%s', path, lib), local = F));
@@ -1205,7 +1441,7 @@ sqlite2sqlite = function(dbS, dbD, query, cols, types = list(), index = NULL) {
 }
 
 sqliteOpen = function(path) {
-	require('RSQLite');
+	Require('RSQLite');
 	dbConnect(SQLite(), dbname = path);
 }
 sqliteQuery = function(db, query, table = NULL) {
@@ -1221,9 +1457,12 @@ sqliteQuery = function(db, query, table = NULL) {
 #
 
 # if (1) {
+#	.fn.set(prefix = 'results/201404/expressionMonocytes-')
 # 	initPublishing('expressionMonocytes201404', '201405');
 # 	publishFile('results/expressionMonocytesReportGO.pdf');
 # }
+# # force as subdir in the reporting dir
+# publishDir('results/BAP1IHCgekoppeldaanWelofGeenMonosomie3', asSubdir = T);
 
 Publishing_env__ <- new.env();
 initPublishing = function(project, currentIteration, publicationPath = '/home/Library/ProjectPublishing') {
@@ -1246,16 +1485,26 @@ publishFctEnv = function(path, into = NULL, as = NULL) with(as.list(Publishing_e
 })
 
 
-publishFile = function(file, into = NULL, as = NULL) with(publishFctEnv(file, into, as), {
-	if (!is.null(into)) Dir.create(destination, treatPathAsFile = T);
+publishFileRaw = function(file, into = NULL, as = NULL) with(publishFctEnv(file, into, as), {
+	if (!is.null(into)) Dir.create(destination, treatPathAsFile = T, recursive = T);
 	Logs('Publishing %{file} --> "%{destination}s', 3);
 	Dir.create(splitPath(destination)$dir, recursive = T);
 	System(Sprintf("chmod -R a+rX %{dir}s", dir = qs(projectFolder)), 4);
-	file.copy(file, destination, overwrite = T);
+	r = file.copy(file, destination, overwrite = T);
+	if (any(!r)) Logs("Copying of '%{file}s' failed.", 3);
 	Sys.chmod(destination, mode = '0755', use_umask = F);
 	destination
 })
 
+publishUnit = function(u, into = NULL, as = NULL, asSubdir = TRUE) {
+	if (file.info(u)$isdir)
+		publishDir(u, into, as, asSubdir) else
+		publishFileRaw(u, into, as)
+}
+
+publishFiles = publishFile = function(files, into = NULL, as = NULL) {
+	lapply(files, publishUnit, into = into, as = as)
+}
 
 publishCsv = function(table, as, ..., into = NULL) {
 	file = tempfile('publish', fileext = 'csv');
@@ -1263,11 +1512,14 @@ publishCsv = function(table, as, ..., into = NULL) {
 	publishFile(file, into, as);
 }
 
-publishDir = function(dir, into = NULL, as = NULL) with(publishFctEnv('', into, as), {
+publishDir = function(dir, into = NULL, as = NULL, asSubdir = FALSE) with(publishFctEnv('', into, as), {
+	sp = splitPath(dir);
+	# if 'dir' is a slashed dir itself, use the last dir-component
+	if (asSubdir) into = if (sp$file == '') splitPath(sp$dir)$file else sp$file;
 	if (!is.null(into)) {
-		destination = splitPath(destination)$fullbase;	# remove trailing slash
-		Dir.create(destination);
+		destination = splitPath(Sprintf('%{destination}s/%{into}s/'))$fullbase;	# remove trailing slash
 	}
+	Dir.create(destination);
 	Logs('Publishing %{dir} --> %{destination}s', 3);
 	Dir.create(destination, recursive = T);
 	System(Sprintf("chmod -R a+rX %{projectFolder}Q"), 4);
@@ -1317,3 +1569,66 @@ Install_local = function(path, ...) {
 	System(Sprintf('tar czf %{pkgPath}Q %{path}Q'), 2);
 	install_local(pkgPath, ...);
 }
+
+# misc
+
+clearWarnings = function()assign('last.warning', NULL, envir = baseenv())
+
+#
+#	<p> packages
+#
+
+# name has to be character of length 1
+Library = function(name, ...,
+	repos = getOption('repos'), repoNoInteraction = TRUE, repoDefault = "http://cran.rstudio.com",
+	quietly = TRUE) {
+	# force evaluation
+	#if (!Eval(Sprintf('require(%{name}s)'))) {
+	if (!Require(name, character.only = TRUE, quietly = TRUE)) {
+		if (repoNoInteraction) repos[repos == '@CRAN@'] = repoDefault[1];
+		#expr = Sprintf('install.packages(%{name}s)');
+		r = try(install.packages(name, repos = repos, ...));
+		# if installation from CRAN fails, try bioconductor
+		if (class(r) == 'try-error') {
+			if (!exists('biocLite')) source("http://bioconductor.org/biocLite.R");
+			biocLite(name, suppressUpdates = TRUE, suppressAutoUpdate = TRUE)
+		}
+		#Eval(Sprintf('library(%{name}s)'));
+		library(name, character.only = TRUE, quietly = quietly);
+	}
+}
+Require = function(..., quietly = TRUE) {
+	if (quietly)
+		suppressPackageStartupMessages(require(..., quietly = quietly)) else
+		require(..., quietly = quietly)
+}
+
+DumpPackageNames = function(path = '~/Documents/AdminComputer/R/packages-%{version}s.csv',
+	version = with(R.Version(), Sprintf('%{major}s.%{minor}s')), n = 1) {
+	Logs('Writing package names to file:%{path}s', path = Sprintf(path), logLevel = 2);
+	lib = .libPaths()[n];
+	writeTable(Df(pkg = row.names(installed.packages(lib))), path = Sprintf(path));
+}
+ReadPackageNames = function(path = '~/Documents/AdminComputer/R/packages-%{version}s.csv',
+	version = R.Version()$version.string) {
+	Logs('Reading package names to file:%{path}s', path = Sprintf(path), logLevel = 2);
+	readTable(Sprintf(path))$pkg;
+}
+ReinstallPackages = function(packages, n = 1, type = 'source') {
+	lib = lib <- .libPaths()[n];
+	install.packages(lib  = lib, pkgs = packages, type = type)
+}
+Reinstall = function(n = 1, type = 'source') {
+	ReinstallPackages(row.names(installed.packages(lib)), n = n , type = type);
+}
+ReinstallFromVersion = function(version, n = 1, type = 'source') {
+	ReinstallPackages(ReadPackageNames(version = version), n = n , type = type);
+}
+
+#
+#	<p> misc linux system stuff
+#
+
+agenda = function()system('bash -l', input = c('shopt -s expand_aliases', 'agenda'))
+agenda_stop = function()system('bash -l', input = c('shopt -s expand_aliases', 'agenda-stop'))
+runTests = function()system('RrunTests')
