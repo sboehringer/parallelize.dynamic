@@ -121,7 +121,8 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackend', function(self) {
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
 	parallelize_setEnable(F);
-	Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
+	parallelize.dynamic:::Lapply_setConfigValue(
+		activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
 	r = lapply(1:freezer$Ncalls(), function(i) {
 		call = freezer$call(i);
 		#call = callEvalArgs(call);
@@ -209,7 +210,8 @@ setMethod('backendCall', 'ParallelizeBackend', function(self) {
 # <i><!>
 	backendCall = function(listcalls) {
 		parallelize_setEnable(F);
-		Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
+		parallelize.dynamic:::Lapply_setConfigValue(
+			activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
 		lapply(listcalls, function(lc) {
 			lapply(lc$elements, function(e)
 				try(do.call(lc$fct, c(list(e), lc$arguments)))
