@@ -34,7 +34,7 @@ library('tools');
 #' submitted
 #' @keywords package
 
-#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile readFile Lapply_getConfig Lapply_setConfigValue
+#' @export parallelize parallelize_call parallelize_initialize parallelize_declare parallelize_setEnable parallelize_internal tempcodefile readFile parallelize_lookup
 #' @exportMethod finalizeParallelization
 #' @exportMethod getResult
 #' @exportMethod initialize
@@ -863,8 +863,10 @@ Lapply_initialze_probing = function() {
 #
 #	<p> configuration
 #
+# fallback required for remote processes without an environemnt
 Lapply_getConfig = function() {
-	get('Lapply_globalConfig__', envir = parallelize_env);
+	envir = if (exists('parallelize_env')) parallelize_env else .GlobalEnv;
+	get('Lapply_globalConfig__', envir = envir)
 	#Lapply_globalConfig__
 }
 Lapply_createConfig = function() {
@@ -873,7 +875,9 @@ Lapply_createConfig = function() {
 	Lapply_getConfig()
 }
 Lapply_setConfig = function(config) {
-	assign('Lapply_globalConfig__', config, envir = parallelize_env);
+	if (exists('parallelize_env'))
+		assign('Lapply_globalConfig__', config, envir = parallelize_env) else
+		Lapply_globalConfig__ <<- config;
 }
 Lapply_setConfigValue = function(...) {
 	newConfig = merge.lists(Lapply_getConfig(), list(...));
