@@ -575,10 +575,6 @@ clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 	clusterSetRNGStream(cl, iseed = NULL);	# parallel
 
 	clusterExport(cl, clCfg$vars);
-	nlapply(clCfg$varsEnv, function(envName) {
-		env = get(envName);
-		clusterExport(cl, clCfg$varsEnv[[envName]], envir = env);
-	}
 
 	# <p> establish node environment
 	envs = listKeyValue(list.key(clCfg$hosts, "host"), list.key(clCfg$hosts, "environment", unlist = F));
