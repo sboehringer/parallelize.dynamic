@@ -525,13 +525,14 @@ ipAddress = function(interface = "eth0") {
 Snow_cluster_env__ = new.env();
 specifyCluster = function(localNodes = 8, sourceFiles = NULL, cfgDict = list(), hosts = NULL,
 	.doSourceLocally = F, .doCopy = T, splitN = NULL, reuseCluster = F, libraries = NULL,
-	evalEnvironment = F) {
+	evalEnvironment = F, varsEnv = NULL) {
 	#<!> might not be available/outdated
 	Require('parallel');
 	cfg = merge.lists(.defaultClusterConfig,
 		cfgDict,
 		list(splitN = splitN, reuseCluster = reuseCluster, evalEnvironment = evalEnvironment),
-		list(local = F, source = sourceFiles, libraries = libraries, hosts = (if(is.null(hosts))
+		list(local = F, source = sourceFiles, libraries = libraries, varsEnv = varsEnv,
+			hosts = (if(is.null(hosts))
 			list(list(host = "localhost", count = localNodes, type = "PSOCK",
 				environment = list(setwd = getwd()))) else
 				hosts)
@@ -574,7 +575,11 @@ clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 	#clusterSetupRNG(cl);	# snow
 	clusterSetRNGStream(cl, iseed = NULL);	# parallel
 
-	clusterExport(cl, clCfg$vars);
+	clusterExport(cl, clCfg[['vars']]);
+	nlapply(clCfg[['varsEnv']], function(envName) {
+		envir = get(envName);
+		clusterExport(cl, clCfg$varsEnv[[envName]], envir = envir);
+	});
 
 	# <p> establish node environment
 	envs = listKeyValue(list.key(clCfg$hosts, "host"), list.key(clCfg$hosts, "environment", unlist = F));
