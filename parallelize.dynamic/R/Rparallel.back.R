@@ -174,12 +174,14 @@ parallelizationStateObjects = c(
 saveParallelizationStatePath = function(self, path = NULL) {
 	if (is.null(path)) path = parallelizationStatePath(self, 'state');
 	Log(sprintf('Saving state to %s', path), 5);
-	parallelizationStateObjects = names(as.list(parallelize_env));
-	Save(parallelizationStateObjects, file = path, symbolsAsVectors = T, envir = parallelize_env);
+	#parallelizationStateObjects = names(as.list(parallelize_env));
+	#Save(parallelizationStateObjects, file = path, symbolsAsVectors = T, envir = parallelize_env);
+	Save('parallelize_env', file = path, symbolsAsVectors = T, envir = .GlobalEnv);
 }
 restoreParallelizationStatePath = function(self, path = NULL) {
 	if (is.null(path)) path = parallelizationStatePath(self, 'state');
-	Load(file = path, envir = parallelize_env);
+	#Load(file = path, envir = parallelize_env);
+	Load(file = path, envir = .GlobalEnv);
 }
 
 setMethod('initScheduling', 'ParallelizeBackend', function(self, call_) {

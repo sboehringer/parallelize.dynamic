@@ -56,6 +56,7 @@ setMethod('initialize', 'ParallelizeBackendSnow', function(.Object, config, ...)
 	args = List_(config[c('sourceFiles', 'localNodes', 'splitN', 'libraries')], rm.null = T);
 	args$libraries = c(args$libraries, 'parallelize.dynamic');
 	args$varsEnv = list(parallelize_env = 'Lapply_globalConfig__');
+	args$doSinkOutput = '~/tmp/cluster_debug/plink';
 	#args = c(args, list(evalEnvironment = T));
 	do.call('specifyCluster', args);
 	.Object

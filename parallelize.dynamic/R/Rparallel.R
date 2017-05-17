@@ -728,7 +728,8 @@ LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Parallelize_config__'), 
 	stateClass = 'LapplyState', backend = 'local', freezerClass = 'LapplyFreezer', ...,
 	force_rerun = FALSE, sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
-	copy_environments = TRUE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule') {
+	copy_environments = TRUE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule',
+	no_parallelize_dynamic = F) {
 	# <p> check for turning off
 	if (backend == 'off') {
 		parallelize_setEnable(F);
@@ -743,11 +744,12 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 	# <p> config
 	#
 	configPre = Lapply_createConfig();
-	sourceFiles = c(
+	sourceFiles = unique(c(
 		if (declare_reset) c() else configPre$sourceFiles,
 		Lapply_config$sourceFiles, Lapply_config$backends[[backend]]$sourceFiles, sourceFiles
-	);
-	libraries = unique(c('parallelize.dynamic',
+	));
+	libraries = unique(c(
+		if (no_parallelize_dynamic) c() else 'parallelize.dynamic',
 		if (declare_reset) c() else configPre$libraries,
 		libraries
 	));
@@ -863,20 +865,24 @@ Lapply_initialze_probing = function() {
 #
 #	<p> configuration
 #
+Lapply_env = function(envir = parent.frame())
+	if (exists('parallelize_env', envir))
+		get('parallelize_env', envir = envir) else
+		stop('no parallelize_env environment')
+
 # fallback required for remote processes without an environemnt
 Lapply_getConfig = function() {
-	envir = if (exists('parallelize_env')) parallelize_env else .GlobalEnv;
-	get('Lapply_globalConfig__', envir = envir)
+	get('Lapply_globalConfig__', envir = Lapply_env())
 	#Lapply_globalConfig__
 }
 Lapply_createConfig = function() {
-	if (!exists('Lapply_globalConfig__', envir = parallelize_env))
+	if (!exists('Lapply_globalConfig__', envir = Lapply_env()))
 		Lapply_setConfig(Lapply_config_default);
 	Lapply_getConfig()
 }
 Lapply_setConfig = function(config) {
 	if (exists('parallelize_env'))
-		assign('Lapply_globalConfig__', config, envir = parallelize_env) else
+		assign('Lapply_globalConfig__', config, envir = Lapply_env()) else
 		Lapply_globalConfig__ <<- config;
 }
 Lapply_setConfigValue = function(...) {

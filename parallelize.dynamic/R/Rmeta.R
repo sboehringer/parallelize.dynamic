@@ -420,6 +420,10 @@ encapsulateCall = function(.call, ..., envir__ = environment(.call), do_evaluate
 	call_
 }
 
+#
+# compact saving for delayed loading
+#
+# <i> make 
 # object: list with single element
 freezeObject = function(object, env) {
 	dir = attr(env, 'path');
@@ -430,8 +434,8 @@ print(file);
 	eval(substitute(delayedAssign(OBJECT, get(load(file = FILE)[1])),
 		list(OBJECT = name, FILE = file)), envir = env);
 }
-freezeObjectsList = function(objects, pos = 2, parent = parent.frame()) {
-	td = tempdir();
+freezeObjectsList = function(objects, pos = 2, parent = parent.frame(), freezeObjectDir = NULL) {
+	td = firstDef(freezeObjectDir, tempdir());
 	env = new.env(parent = parent);
 	attr(env, "path") = td;
 
@@ -441,8 +445,8 @@ freezeObjectsList = function(objects, pos = 2, parent = parent.frame()) {
 	nlapply(objects, function(n)freezeObject(objects[n], env = env));
 	env
 }
-freezeObjects = function(..., pos = 2, parent = parent.frame()) {
-	freezeObjectsList(list(...), pos = pos)
+freezeObjects = function(..., pos = 2, parent = parent.frame(), freezeObjectDir = NULL) {
+	freezeObjectsList(list(...), pos = pos, parent, freezeObjectDir)
 }
 
 #
@@ -450,7 +454,7 @@ freezeObjects = function(..., pos = 2, parent = parent.frame()) {
 #
 
 #
-#	<p> delayed loading
+#	<p> delayed loading for matrix-like data structures
 #
 
 # missing2null

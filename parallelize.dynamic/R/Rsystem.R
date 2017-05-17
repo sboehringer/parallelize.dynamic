@@ -525,13 +525,14 @@ ipAddress = function(interface = "eth0") {
 Snow_cluster_env__ = new.env();
 specifyCluster = function(localNodes = 8, sourceFiles = NULL, cfgDict = list(), hosts = NULL,
 	.doSourceLocally = F, .doCopy = T, splitN = NULL, reuseCluster = F, libraries = NULL,
-	evalEnvironment = F, varsEnv = NULL) {
+	evalEnvironment = F, varsEnv = NULL, doSinkOutput = NULL) {
 	#<!> might not be available/outdated
 	Require('parallel');
 	cfg = merge.lists(.defaultClusterConfig,
 		cfgDict,
 		list(splitN = splitN, reuseCluster = reuseCluster, evalEnvironment = evalEnvironment),
 		list(local = F, source = sourceFiles, libraries = libraries, varsEnv = varsEnv,
+			doSinkOutput = doSinkOutput,
 			hosts = (if(is.null(hosts))
 			list(list(host = "localhost", count = localNodes, type = "PSOCK",
 				environment = list(setwd = getwd()))) else
@@ -576,26 +577,31 @@ clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 	clusterSetRNGStream(cl, iseed = NULL);	# parallel
 
 	clusterExport(cl, clCfg[['vars']]);
-	nlapply(clCfg[['varsEnv']], function(envName) {
-		envir = get(envName);
-		clusterExport(cl, clCfg$varsEnv[[envName]], envir = envir);
-	});
 
 	# <p> establish node environment
 	envs = listKeyValue(list.key(clCfg$hosts, "host"), list.key(clCfg$hosts, "environment", unlist = F));
 	if (Log.level() >= 7) print(clCfg);
 
-	if (establishEnvironment) r = clusterApply(cl, hosts, function(host, environments, cfg){
-		env = environments[[host]];
-		if (!is.null(env$setwd)) setwd(env$setwd);
-		if (!is.null(cfg$source)) for (s in cfg$source) source(s, chdir = TRUE);
-		if (!is.null(cfg$libraries)) for (package in cfg$libraries) library(package, character.only = TRUE);
-		# <!> as of 3.4.2013: stop support of exporting global variables to enable CRAN submission
-		#if (!is.null(env$globalVars))
-		#	for (n in names(env$globalVars)) assign(n, env$globalVars[[n]], pos = .GlobalEnv);
-		#sprintf("%s - %s - %s", host, hapmap, getwd());
-		NULL
-	}, environments = envs, cfg = clCfg);
+	if (establishEnvironment) {
+		r = clusterApply(cl, seq_along(hosts), function(i, environments, cfg){
+			host = hosts[i];
+			env = environments[[host]];
+			if (!is.null(env$setwd)) setwd(env$setwd);
+			if (!is.null(cfg$source)) for (s in cfg$source) source(s, chdir = TRUE);
+			if (!is.null(cfg$libraries))
+				for (package in cfg$libraries) library(package, character.only = TRUE);
+			# <!> as of 3.4.2013: stop support of exporting global variables to enable CRAN submission
+			#if (!is.null(env$globalVars))
+			#	for (n in names(env$globalVars)) assign(n, env$globalVars[[n]], pos = .GlobalEnv);
+			#sprintf("%s - %s - %s", host, hapmap, getwd());
+			if (Nif(cfg$doSinkOutput)) sink(sprintf('%s-%d.out', cfg$doSinkOutput, i));
+			NULL
+		}, environments = envs, cfg = clCfg);
+		nlapply(clCfg[['varsEnv']], function(envName) {
+			envir = get(envName);
+			clusterExport(cl, clCfg$varsEnv[[envName]], envir = envir);
+		});
+	}
 
 	# <p> iterate
 	N = clCfg$splitN * length(hosts);	# No of splits
