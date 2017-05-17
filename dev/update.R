@@ -25,5 +25,5 @@ if (1) {
 }
 
 if (0) {
-	install_github('sboehringer/parallelize.dynamic', subdir = 'parallelize.dynamic');
+	install_github('sboehringer/parallelize.dynamic', subdir = 'parallelize.dynamic', force = TRUE);
 }
