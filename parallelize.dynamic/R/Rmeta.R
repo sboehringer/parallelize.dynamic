@@ -453,5 +453,4 @@ freezeObjects = function(..., pos = 2, parent = parent.frame(), freezeObjectDir 
 #	</p> freeze/thaw functions
 #
 
-
 Deparse = function(o)join(deparse(o));

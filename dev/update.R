@@ -6,7 +6,7 @@
 require('roxygen2');
 require('devtools');
 
-if (0) {
+if (1) {
 	system('./pullin.sh');
 }
 
