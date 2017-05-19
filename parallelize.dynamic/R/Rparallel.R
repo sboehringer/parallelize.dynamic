@@ -225,7 +225,7 @@ LapplyRNGseedCapsuleClass = setRefClass('LapplyRNGseedCapsule',
 	# use .RandomSeed interface
 	#
 	store = function() {
-		seed <<- rget('.Random.seed', NULL, envir = .GlobalEnv);
+		seed <<- rget('.Random.seed', integer(0), envir = .GlobalEnv);
 		type <<- RNGkind();
 		NULL
 	},
