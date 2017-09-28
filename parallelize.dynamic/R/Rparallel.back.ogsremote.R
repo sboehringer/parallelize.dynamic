@@ -216,9 +216,9 @@ setMethod('pollParallelization', 'ParallelizeBackendOGSremote', function(self,
 # 	);
 	# <p> refine
 	message = .pollMessage(message, continue);
-	if (!continue) cat("\n");
 	#.catVector(message);
 	catCr(message);
+	if (!continue) cat("\n");
 	r = list(message = message, continue = continue);
 	r
 });

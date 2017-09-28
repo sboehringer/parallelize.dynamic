@@ -822,7 +822,8 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 #'   # run ensuing parallelizations locally, ignore result produced earlier
 #'   parallelize_declare(source = 'mySourceFile.R', packages = 'glmnet');
 #' 
-parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, reset = TRUE, config = NULL) {
+parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, reset = TRUE, config = NULL,
+	salt = NULL) {
 	Lapply_config = Lapply_createConfig();
 	# <p> config
 	sourceFiles = unique(c(if (!reset) Lapply_config$sourceFiles else c(), source));
@@ -834,7 +835,7 @@ parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, rese
 		Lapply_config_default,
 		Lapply_config,
 		config,
-		list(sourceFiles = sourceFiles, libraries = libraries, copyFiles = copyFiles)
+		list(sourceFiles = sourceFiles, libraries = libraries, copyFiles = copyFiles, salt = salt)
 	);
 	Lapply_setConfig(newConfig);
 }
@@ -844,7 +845,7 @@ parallelize_initializeBackendWithCall = function(call_, Lapply_config) with(Lapp
 	#functionName = firstDef(call_$name, deparse(sys.call(-6)[[2]][[1]]));
 	functionName = firstDef(call_$name, deparse(sys.call(-6)[[2]]));
 	#signature = md5sumString(sprintf('%s%s', tag, deparse(.f)));
-	signature = md5sumString(sprintf('%s%s', functionName, backend));
+	signature = md5sumString(sprintf('%s%s%s', functionName, backend, salt));
 	Log(sprintf('parallelize signature %s', signature), 5);
 
 	backendClass = sprintf('ParallelizeBackend%s', uc.first(firstDef(backendConfig$backend, backend)));
@@ -997,7 +998,9 @@ Lapply_config_default = list(
 	#copy_arguments = FALSE
 	# copy_environment should be interpreted by the backend to isolate objects per parallel thread,
 	#	i.e. delayed data objects are freshly interpreted per thread (i.e. frozen/thawed)
-	copy_environments = TRUE
+	copy_environments = TRUE,
+	# appended to names prior to calculating md5 -> allow to distinguish identical calls
+	salt = ''
 );
 Lapply_backendConfig_default = list(
 	doNotReschedule = F, doSaveResult = F
@@ -1316,6 +1319,7 @@ parallelize_internal = function(call_, Lapply_local = rget('Lapply_local', defau
 		# this is a delegating backend (only supported in offline mode)
 		if (parallelize_wait && Lapply_backend__@offline) {
 			while (pollParallelization(Lapply_backend__)$continue) Sys.sleep(Lapply_config$wait_interval);
+			Log('Parallelize: retrieving results.', 5);
 			r = getResult(Lapply_backend__);
 		}
 		r
