@@ -729,7 +729,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 	stateClass = 'LapplyState', backend = 'local', freezerClass = 'LapplyFreezer', ...,
 	force_rerun = FALSE, sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
 	copy_environments = TRUE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule',
-	no_parallelize_dynamic = F) {
+	no_parallelize_dynamic = F, salt = NULL) {
 	# <p> check for turning off
 	if (backend == 'off') {
 		parallelize_setEnable(F);
@@ -779,7 +779,8 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 			sourceFiles = sourceFiles, libraries = libraries,
 			copy_environments = copy_environments,
 			seedCapsules = rngSeedCapsules,
-			activeDictionary = activeDictionary
+			activeDictionary = activeDictionary,
+			salt = salt
 		)
 	);
 	Lapply_setConfig(Lapply_config);
@@ -845,8 +846,9 @@ parallelize_initializeBackendWithCall = function(call_, Lapply_config) with(Lapp
 	#functionName = firstDef(call_$name, deparse(sys.call(-6)[[2]][[1]]));
 	functionName = firstDef(call_$name, deparse(sys.call(-6)[[2]]));
 	#signature = md5sumString(sprintf('%s%s', tag, deparse(.f)));
-	signature = md5sumString(sprintf('%s%s%s', functionName, backend, salt));
-	Log(sprintf('parallelize signature %s', signature), 5);
+	signatureRaw = sprintf('%s%s%s', functionName, backend, salt);
+	signature = md5sumString(signatureRaw);
+	Log(sprintf('parallelize signature %s [%s]', signature, signatureRaw), 5);
 
 	backendClass = sprintf('ParallelizeBackend%s', uc.first(firstDef(backendConfig$backend, backend)));
 	#backendConfig = rget(sprintf('%s_config__', backendClass), default = list());
