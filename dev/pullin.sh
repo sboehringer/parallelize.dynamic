@@ -9,7 +9,7 @@
 #
 
 PERLLIB=~/src/privatePerl
-cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm ~/bin/qsub.pl ../parallelize.dynamic/inst/Perl
+cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm $PERLLIB/PropertyList.pm ~/bin/qsub.pl ../parallelize.dynamic/inst/Perl
 
 #
 #	<p> R
