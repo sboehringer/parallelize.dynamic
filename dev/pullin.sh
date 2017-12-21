@@ -11,7 +11,7 @@
 PERLLIB=~/src/privatePerl
 
 cp $PERLLIB/TempFileNames.pm $PERLLIB/Set.pm $PERLLIB/PropertyList.pm ~/bin/qsub.pl ~/bin/R.pl ../parallelize.dynamic/inst/Perl
-cp $PERLLIB/Statistics/R.pm ../parallelize.dynamic/inst/Perl/Statistics
+cp $PERLLIB/Statistics/R.pm $PERLLIB/Statistics/Rsession.pm ../parallelize.dynamic/inst/Perl/Statistics
 
 
 #
