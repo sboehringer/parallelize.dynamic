@@ -88,10 +88,10 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 .OGSremoteWorkingDir = function(self).OGSremoteFile(self, tag = '', ext = '')
 
 # patch source file pathes to local versions: assumed to be copied to working directory on server
-setMethod('lapply_dispatch_config', 'ParallelizeBackend', function(self) {
-	config = self@config;
-	config$sourceFiles = list.kpu(lapply(config$sourceFiles, splitPath), 'file');
-	config
+setMethod('lapply_dispatch_config', 'ParallelizeBackendOGSremote', function(self) {
+	cfg = callNextMethod(self);
+	cfg$sourceFiles = list.kpu(lapply(cfg$sourceFiles, splitPath), 'file');
+	return(cfg);
 })
 
 setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_) {
@@ -140,10 +140,10 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	# <p> start rampup on remote host
 	#remoteSourceFiles = list.kpu(lapply(self@config$sourceFiles, splitPath), 'file')
 	#remoteSourceFiles = sapply(self@config$sourceFiles, function(path)splitPath(path)$file);
-	remoteConfig = lapply_dispatch_config(self);
+	dispatchConfig = lapply_dispatch_config(self);
 	freeze_control = list(
-		sourceFiles = remoteConfig$sourceFiles,	#remoteSourceFiles
-		libraries = remoteConfig$libraries,
+		sourceFiles = dispatchConfig$sourceFiles,	#remoteSourceFiles
+		libraries = dispatchConfig$libraries,
 		logLevel = Log.level(),
 		freeze_relative = T
 	);
@@ -160,9 +160,9 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		# System
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
-		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = remoteConfig$qsubRampUpMemory,
-		ssh_source_file = c(remoteConfig$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=-'
-#		ssh_source_file = c(remoteConfig$ssh_source_file, remoteProfile)
+		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = dispatchConfig$qsubRampUpMemory,
+		ssh_source_file = c(dispatchConfig$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=-'
+#		ssh_source_file = c(dispatchConfig$ssh_source_file, remoteProfile)
 	);
 	# end with
 	});
