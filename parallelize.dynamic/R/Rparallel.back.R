@@ -15,6 +15,9 @@
 #
 
 setGeneric("isSynchroneous", function(self) standardGeneric("isSynchroneous"));
+# return config as suitable for dispatching a job: e.g. patch pathes
+setGeneric("lapply_dispatch_config",
+	function(self)standardGeneric("lapply_dispatch_config"));
 setGeneric("lapply_dispatch",
 	function(self, l_parallelize, f_parallelize, ...)standardGeneric("lapply_dispatch"));
 setGeneric("lapply_dispatchFinalize", function(self) standardGeneric("lapply_dispatchFinalize"));
@@ -117,6 +120,7 @@ setMethod('lapply_dispatch', 'ParallelizeBackend', function(self, l_parallelize,
 		f_parallelize = f_parallelize, l_parallelize = l_parallelize, args_parallelize = args);
 	NULL
 });
+setMethod('lapply_dispatch_config', 'ParallelizeBackend', function(self) { self@config })
 setMethod('lapply_dispatchFinalize', 'ParallelizeBackend', function(self) { 
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();

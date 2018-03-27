@@ -904,7 +904,7 @@ spssDate = function(date, tz = 'MET', spss.origin = as.POSIXct('2003/02/11', tz 
 readTable.SAV = readTable.sav = function(path, options = NULL, headerMap = NULL, stringsAsFactors = F) {
 	Require('foreign');
 	# read file
-	r0 = read.spss(path);
+	r0 = suppressWarnings(read.spss(path));
 	r1 = as.data.frame(r0, stringsAsFactors = stringsAsFactors);
 	if (notE(options$DATE))
 		r1[, options$DATE] = do.call(data.frame, lapply(r1[, options$DATE, drop = F], spssDate));
@@ -922,7 +922,9 @@ readTable.xls = function(path, options = NULL, ..., row.names = NULL, sheet = 1)
 	read.xls(path, sheet = sheet, ..., row.names = row.names, verbose = FALSE);
 }
 
-tableFunctionConnect = c('csv', 'RData');
+#tableFunctionConnect = c('csv', 'RData', 'gz');
+tableFunctionConnect = c('bz2', 'RData', 'gz');
+readersAcceptingFilesOnly = c('xls');
 
 tableFunctionForPathMeta = function(path, template = 'readTable.%{ext}s', default = readTable.csv,
 	forceReader = NULL) {
@@ -952,7 +954,8 @@ tableFunctionForPathReader = function(path, template = 'readTable.%{ext}s', defa
 	forceReader = NULL) {
 	m = m0 = tableFunctionForPathMeta(path, template = 'readTable.%{ext}s', default = default, forceReader);
 	if (!is.null(m$compression)) {
-		path = if (m0$compression %in% tableFunctionConnect)
+		path = if (m0$compression %in% tableFunctionConnect &&
+				 !(m0$ext %in% readersAcceptingFilesOnly))
 			compressedConnection(m0$path, m0$compression) else
 			decompressPath(m0$path, m0$tempfile, m0$compression)$destination
 		m = merge.lists(m0, list(path = path));
@@ -1006,6 +1009,7 @@ readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, c
 	if (!is.null(o$complete)) r = r[apply(r[, o$complete], 1, function(e)!any(is.na(e))), ];
 	if (!is.null(o$CONST)) { for (n in names(o$CONST)) r[[n]] = o$CONST[[n]]; }
 	if (!is.null(as_factor)) r = Df_(r, as_factor = as_factor);
+	if (Nif(o$FACTORS)) r = Df_(r, as_factor = o$FACTORS);
 	if (!is.null(o$DELETE)) r = r[-o$DELETE, , drop = F];
 	r
 }
@@ -1589,29 +1593,38 @@ clearWarnings = function()assign('last.warning', NULL, envir = baseenv())
 #	<p> packages
 #
 
-# name has to be character of length 1
-Library = function(name, ...,
-	repos = getOption('repos'), repoNoInteraction = TRUE, repoDefault = "http://cran.rstudio.com",
-	quietly = TRUE) {
+LibraryRaw = function(name, ..., repos, repoNoInteraction, repoDefault, quietly, reposSupplementary) {
 	# force evaluation
 	#if (!Eval(Sprintf('require(%{name}s)'))) {
 	if (!Require(name, character.only = TRUE, quietly = TRUE)) {
 		if (repoNoInteraction) repos[repos == '@CRAN@'] = repoDefault[1];
+		repos = c(repos, reposSupplementary);
 		#expr = Sprintf('install.packages(%{name}s)');
 		r = try(install.packages(name, repos = repos, ...));
 		# if installation from CRAN fails, try bioconductor
-		if (class(r) == 'try-error') {
-			if (!exists('biocLite')) source("http://bioconductor.org/biocLite.R");
+		Log(Sprintf('Trying to install "%{name}s" from bioconductor'), 5);
+		if (is.null(r) || class(r) == 'try-error') {
+			if (!exists('biocLite')) source("https://bioconductor.org/biocLite.R");
 			biocLite(name, suppressUpdates = TRUE, suppressAutoUpdate = TRUE)
 		}
 		#Eval(Sprintf('library(%{name}s)'));
 		library(name, character.only = TRUE, quietly = quietly);
 	}
 }
+
+# name has to be character of length 1
+Library = function(name, ...,
+	repos = getOption('repos'), repoNoInteraction = TRUE, repoDefault = "http://cran.rstudio.com",
+	quietly = TRUE, reposSupplementary = 'http://www.rforge.net/') {
+
+	wrapper = if (quietly) suppressWarnings else eval;
+	wrapper(LibraryRaw(name, ...,
+		repos = repos, repoNoInteraction = repoNoInteraction, repoDefault = repoDefault,
+		quietly = quietly, reposSupplementary = reposSupplementary));
+}
 Require = function(..., quietly = TRUE) {
-	if (quietly)
-		suppressPackageStartupMessages(require(..., quietly = quietly)) else
-		require(..., quietly = quietly)
+	wrapper = if (quietly) function(call_)suppressWarnings(suppressPackageStartupMessages(call_)) else eval
+	wrapper(require(..., quietly = quietly))
 }
 
 DumpPackageNames = function(path = '~/Documents/AdminComputer/R/packages-%{version}s.csv',

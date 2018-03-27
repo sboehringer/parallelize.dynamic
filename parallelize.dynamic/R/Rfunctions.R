@@ -75,3 +75,42 @@ benchmark.timed = function(.f, ..., N__ = 1e1) {
 	print(r$t1);
 	r
 }
+
+Benchmark = function(expr, N__ = 1, verbose = T, returnTiming = F, Nabbr = 20, logLevel = 2,
+	gcFirst = FALSE, timeStat = sum, envir = parent.frame()) {
+	s = Deparse(substitute(expr));
+
+	# <p> timing
+	t0 = Sys.time();
+	# <i> for-loop required due to side-effects
+	r0 = NULL;
+	timesCal = NULL;
+	timesSys = NULL;
+	for (i in 1:N__) {
+		t0i = Sys.time();
+		t = system.time(r0 <- eval(expr, envir = envir), gcFirst = gcFirst);
+		t1i = Sys.time();
+		timesCal[i] = t1i - t0i;
+		timesSys[i] = timeStat(t);
+	}
+	t1 = Sys.time();
+
+	# <p> stats
+	#timeTotal = t1 - t0;
+	#timeIteration = timeTotal/N__;
+	timing = list(
+		timeCal = sum(timesCal), timeCalIter = mean(timesCal), timeCalSd = sd(timesCal),
+		timeSys = sum(timesSys), timeSysIter = mean(timesSys), timeSysSd = sd(timesSys),
+		lastResult = r0, t0 = t0, t1 = t1
+	);
+
+	if (verbose) with(timing, {
+		exprStr = strAbbr(s, Nabbr);
+		l = logLevel;
+		Logs('Timing of %{exprStr}s', logLevel = l);
+		Logs('\tCal: %{timeCal}.2f Iter: %{timeCalIter}.2f (%{timeCalSd}.1f)', logLevel = l);
+		Logs("\tSys: %{timeSys}.2f Iter: %{timeSysIter}.2f (%{timeSysSd}.1f)", logLevel = l);
+	})
+	r = if (returnTiming) timing else r0;
+	r
+}

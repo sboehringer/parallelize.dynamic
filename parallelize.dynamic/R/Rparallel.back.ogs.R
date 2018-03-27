@@ -216,9 +216,10 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 
 	# <p> setup
 	c = Lapply_getConfig();
+	remoteConfig = lapply_dispatch_config(self);
 	freeze_control = list(
-		sourceFiles = self@config$sourceFiles,
-		libraries = unique(c('parallelize.dynamic', self@config$libraries)),
+		sourceFiles = remoteConfig$sourceFiles,
+		libraries = unique(c('parallelize.dynamic', remoteConfig$libraries)),
 		objects = parallelizationStateObjects,
 		logLevel = Log.level()
 	);
@@ -240,8 +241,8 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 		# force evaluation/restriction of environment
 		mycalls = lapply(mycalls, function(lc) {
 			# < 24.6.2015
-			#lc$fct = environment_eval(lc$fct, functions = self@config$copy_environments);
-			if (self@config$copy_environments) {
+			#lc$fct = environment_eval(lc$fct, functions = remoteConfig$copy_environments);
+			if (remoteConfig$copy_environments) {
 				lc$fct = environment_eval(lc$fct, functions = FALSE, recursive = FALSE);
 			}
 			lc
@@ -251,7 +252,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 		r = freezeCallOGS(self, ogs_frozen_call__, listcalls = mycalls,
 			freeze_file = path, freeze_control = freeze_control_chunk,
 			cwd = getwd(),
-			qsubMemory = self@config$qsubParallelMemory,
+			qsubMemory = remoteConfig$qsubParallelMemory,
 			thaw_transformation = thaw_object
 		);
 		r = c(r, list(file = path, from = idcs[job_index__, 1], to = idcs[job_index__, 2]));

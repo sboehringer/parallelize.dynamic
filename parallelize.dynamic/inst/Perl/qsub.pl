@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #	qsub.pl
 #Mon Sep 27 17:29:22 CEST 2010
 

@@ -1371,7 +1371,7 @@ sub formatTable { my ($d, $rows, $cols) = @_;
 }
 
 sub dateReformat { my ($date, $fmtIn, $fmtOut) = @_;
-	return strftime($fmtOut, strptime($date, $fmtIn));
+	return strftime($fmtOut, POSIX::strptime($date, $fmtIn));
 }
 
 sub slurpToTemp {
