@@ -68,18 +68,23 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 	.Object
 });
 
-.remoteConfigForOGSremote = function(stateDir = '.') {
+# dispatchKeys: which keys to copy from dispatchConfig to remoteConfig
+.remoteConfigForOGSremote = function(self, stateDir = '.', dispatchKeys = 'sourceFiles') {
 	Lapply_remote_config = Lapply_getConfig();
 	backendConfig = merge.lists(
 		Lapply_remote_config$backendConfig,
 		list(backend = 'OGS', stateDir = stateDir, logLevel = Log.level())
 	);
+	# modified config for execution on target host
+	dispatchConfig = lapply_dispatch_config(self);
+	backendConfig[dispatchKeys] = dispatchConfig[dispatchKeys]
+
 	Lapply_remote_config$backends[[Lapply_remote_config$backend]] = 
 		Lapply_remote_config$backendConfig = backendConfig;
 	Lapply_remote_config
 }
 .OGSremoteFile = function(self, tag = '', ext = '.RData') {
-	Lapply_remote_config = .remoteConfigForOGSremote(stateDir = self@config$remote);
+	Lapply_remote_config = .remoteConfigForOGSremote(self, stateDir = self@config$remote);
 	remoteDummy = new('ParallelizeBackendOGS', config =
 		Lapply_remote_config$backendConfig, signature = self@signature);
 	remoteDir = parallelizationStatePath(remoteDummy, tag = tag, ext = ext);
@@ -147,7 +152,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		logLevel = Log.level(),
 		freeze_relative = T
 	);
-	remoteConfig = .remoteConfigForOGSremote(stateDir = '.');
+	remoteConfig = .remoteConfigForOGSremote(self, stateDir = '.');
 	Log('ParallelizeBackendOGSremote:initScheduling:callEvalArgs', 7);
 	call_ = callEvalArgs(call_, env_eval = remoteConfig$copy_environments);
 	Log('ParallelizeBackendOGSremote:initScheduling:freezeCallOGS', 7);
@@ -209,7 +214,7 @@ catCr = function(message) {
 setMethod('pollParallelization', 'ParallelizeBackendOGSremote', function(self,
 	options = list(printProgress = T)) {
 	# <p> overwrite backend configuration
-	remote_config = .remoteConfigForOGSremote();
+	remote_config = .remoteConfigForOGSremote(self);
 	jidFile = .OGSremoteFile(self, 'jids');
 	jids = get(Load(file = jidFile, Load_sleep = 30, Load_retries = 60)[[1]]);
 	qstat_jids = .pollJids(patterns = 'ssh',
