@@ -75,9 +75,11 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 		Lapply_remote_config$backendConfig,
 		list(backend = 'OGS', stateDir = stateDir, logLevel = Log.level())
 	);
-	# modified config for execution on target host
+
+	# <p> post-process config for execution on target host
 	dispatchConfig = lapply_dispatch_config(self);
-	backendConfig[dispatchKeys] = dispatchConfig[dispatchKeys]
+	backendConfig[dispatchKeys] = dispatchConfig[dispatchKeys];
+	Lapply_remote_config[dispatchKeys] = dispatchConfig[dispatchKeys];
 
 	Lapply_remote_config$backends[[Lapply_remote_config$backend]] = 
 		Lapply_remote_config$backendConfig = backendConfig;
