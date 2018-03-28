@@ -185,8 +185,9 @@ setMethod('restoreParallelizationState', 'ParallelizeBackendOGS', function(self)
 setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self, call_) {
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	c = Lapply_getConfig();
+	remoteConfig = lapply_dispatch_config(self);
 	freeze_control = list(
-		sourceFiles = self@config$sourceFiles,
+		sourceFiles = remoteConfig$sourceFiles,
 		libraries = unique(c('parallelize.dynamic', self@config$libraries)),
 		objects = parallelizationStateObjects,
 		logLevel = Log.level(),
@@ -201,7 +202,7 @@ setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self,
 		# .parallelizationStepOGS
 		pathHandover = pathHandover,
 		# freeze
-		freeze_file = path, freeze_control = freeze_control, qsubMemory = self@config$qsubRampUpMemory,
+		freeze_file = path, freeze_control = freeze_control, qsubMemory = remoteConfig$qsubParallelMemory,
 		waitForJids = self@jids$chunksJids()
 	)
 	save(r0, file = pathHandover);
