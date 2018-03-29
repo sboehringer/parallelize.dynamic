@@ -140,6 +140,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 
 	# <p> create remote wrappers
 	parallelize_remote = function(call_, Lapply_config) {
+		parallelize.dynamic:::Lapply_setConfig(Lapply_config);
 		parallelize_initialize(Lapply_config = Lapply_config,
 			backend = Lapply_config$backend, copy_environments = Lapply_config$copy_environments);
 		r = parallelize_internal(call_, parallelize_wait = F);
