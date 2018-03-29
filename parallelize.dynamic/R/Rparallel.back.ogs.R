@@ -194,6 +194,7 @@ setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self,
 		rng = RNGuniqueSeed(self@signature)
 	);
 	print('scheduleNextParallelization');
+	print(class(self));
 	print(freeze_control);
 	path = parallelizationStatePath(self, 'rampUp:%03d', Lapply_executionState__$rampUp);
 	pathHandover = parallelizationStatePath(self, 'rampUp:%03d_handover', Lapply_executionState__$rampUp);
