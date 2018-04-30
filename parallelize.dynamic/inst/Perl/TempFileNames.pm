@@ -3,7 +3,7 @@ require 5.000;
 require Exporter;
 
 @ISA       = qw(Exporter);
-@EXPORT    = qw(&tempFileName &removeTempFiles &readCommand &readFile &writeFile &scanDir &copyTree &searchOrphanedFiles &removeEmptySubdirs &dirList &dirListPattern &dirListDeep &fileList &FileList &searchOutputPattern &normalizedPath &relativePath &quoteRegex &uniqFileName &readStdin &restoreRedirect &redirectInOut &germ2ascii &appendStringToPath &pipeStringToCommand &pipeStringToCommandSystem &mergeDictToString &mapTr &mapS $DONT_REMOVE_TEMP_FILES &readFileHandle &trimmStr &deepTrimmStr &removeWS &fileLength &processList &pidsForWordsPresentAbsent &initLog &Log &cmdNm &splitPath &resourcePath &resourcePathesOfType &splitPathDict &progressPrint &percentagePrint &firstFile &firstFileLocation &readFileFirstLocation &allowUniqueProgramInstanceOnly &allowUniqueProgramInstanceOnly &write2Command &ipAddress &packDir &unpackDir &System $YES $NO &interpolatedPlistFromPath &GetOptionsStandard &StartStandardScript &callTriggersFromOptions &doLogOnly &interpolatedPropertyFromString &existsOnHost &existsFile &existsWithBase &mergePdfs &SystemWithInputOutput &depthSearchDir &diskUsage &searchMissingFiles &whichFilesInTree &setLogOnly &readConfigFile &writeConfigFile &statDict &Stat &findDir &tempEdit &Mkpath &Mkdir &Rename &Rmdir &Unlink &Move &Symlink &removeBrokenLinks &testService &testIfMount &qs &qsQ &qs2 &uqs &prefix &dateReformat &formatTableComponents &formatTable &lcPrefix &prefix &postfix &circumfix &slurpToTemp &slurpPipeToTemp);
+@EXPORT    = qw(&tempFileName &removeTempFiles &readCommand &readFile &writeFile &scanDir &copyTree &searchOrphanedFiles &removeEmptySubdirs &dirList &dirListPattern &dirListDeep &fileList &FileList &searchOutputPattern &normalizedPath &relativePath &quoteRegex &uniqFileName &readStdin &restoreRedirect &redirectInOut &germ2ascii &appendStringToPath &pipeStringToCommand &pipeStringToCommandSystem &mergeDictToString &mapTr &mapS $DONT_REMOVE_TEMP_FILES &readFileHandle &trimmStr &deepTrimmStr &removeWS &fileLength &processList &pidsForWordsPresentAbsent &initLog &Log &cmdNm &splitPath &resourcePath &resourcePathesOfType &splitPathDict &progressPrint &percentagePrint &firstFile &firstFileLocation &readFileFirstLocation &allowUniqueProgramInstanceOnly &allowUniqueProgramInstanceOnly &write2Command &ipAddress &packDir &unpackDir &System $YES $NO &interpolatedPlistFromPath &GetOptionsStandard &StartStandardScript &callTriggersFromOptions &doLogOnly &interpolatedPropertyFromString &existsOnHost &existsFile &existsWithBase &mergePdfs &SystemWithInputOutput &depthSearchDir &diskUsage &searchMissingFiles &whichFilesInTree &setLogOnly &readConfigFile &writeConfigFile &statDict &Stat &findDir &tempEdit &Mkpath &Mkdir &Rename &Rmdir &Unlink &Move &Symlink &removeBrokenLinks &testService &testIfMount &qs &qsQ &qs2 &uqs &prefix &dateReformat &formatTableComponents &formatTable &lcPrefix &prefix &postfix &circumfix &slurpToTemp &slurpPipeToTemp &pathInter);
 
 #@EXPORT_OK = qw($sally @listabob %harry func3);
 
@@ -17,9 +17,10 @@ use IO::File;
 use PropertyList;
 use Set;
 use POSIX;
-use POSIX::strptime qw(strptime);
+#use POSIX::strptime qw(strptime);	# -> load
 use Fcntl ':flock';	# testService
 use Fcntl qw(&F_WRLCK &F_SETLKW &F_UNLCK &F_SETLK);	#lockFile
+use Module::Load;
 #require 'sys/fcntl.ph';	#lockFile
 
 #use Locale;	# dependence is: germ2ascii <i><A> tb removed
@@ -37,7 +38,7 @@ $GeneralHelp=<<GENERAL_HELP;
 	--credentials	export credentials from keyring
 GENERAL_HELP
 
-$locale = undef;
+my $locale = undef;
 
 #
 #	<p> functions
@@ -141,6 +142,10 @@ sub removeTempFiles {
 
 END { removeTempFiles() if (!$DONT_REMOVE_TEMP_FILES && !$ENV{DONT_REMOVE_TEMP_FILES}); }	# perl shutdown
 
+sub pathInter { my ($p) = @_;
+	$p =~ s{^~}{$ENV{HOME}}o;
+	return $p;
+}
 sub resourcePath { my ($resource) = @_;
 	foreach $path (@INC)
 	{
@@ -350,8 +355,9 @@ sub writeFile { my ($path, $buffer, $doMakePath, $fileMode, $dirMode, $host) = @
 		my $openPostf = defined($c->{encoding})? ":encoding($c->{encoding})": '';
 		if (uc($c->{append}) eq 'YES') { return undef if (!open(WRITEFILE, ">>$openPostf", $path));
 		} else {						 return undef if (!open(WRITEFILE, ">$openPostf", $path)); }
-		syswrite(WRITEFILE, $buffer, length($buffer), 0);
+		my $l = syswrite(WRITEFILE, $buffer, length($buffer), 0);
 		close(WRITEFILE);
+		Log("writeFile: path='$path' append='$c->{append}' length=". length($buffer). " written=$l", 7);
 		chmod($fileMode, $path) if ($fileMode); # chmod needs umask
 		if (defined($group)) {
 			my $gid = getgrnam($group);
@@ -389,7 +395,7 @@ sub searchOutputPattern { my ($pattern,$cmd)=@_;
 # Sandboxed file operations
 sub Mkpath { my ($pathes, $logLevel) = @_;
 	foreach $path (ref($pathes) eq 'ARRAY'? @$pathes: ($pathes)) {
-		Log("Mkpath: $path", $logLevel);
+		Log("Mkpath: $path [". !$main::__doLogOnly. "]", $logLevel);
 		mkpath($path) if (!$main::__doLogOnly);
 	}
 }
@@ -1371,6 +1377,7 @@ sub formatTable { my ($d, $rows, $cols) = @_;
 }
 
 sub dateReformat { my ($date, $fmtIn, $fmtOut) = @_;
+	load('POSIX::strptime', qw(strptime));
 	return strftime($fmtOut, POSIX::strptime($date, $fmtIn));
 }
 

@@ -110,6 +110,14 @@ dirList = function(dir, regex = T, case = T) {
 list_files_with_exts = function(path, exts, full.names = T)
 	list.files(path, pattern = Sprintf('.(%{Exts}s)$', Exts = join(exts, '|')), full.names = full.names);
 
+list_files_with_base = function(path, exts, full.names = T) {
+	sp = splitPath(path);
+	list.files(sp$dir,
+		pattern = Sprintf('^%{base}s.(%{Exts}s)$', base = sp$base, Exts = join(exts, '|')),
+		full.names = full.names
+	);
+}
+
 write.csvs = function(t, path, semAppend = "-sem", ...) {
 	s = splitPath(path);
 	write.csv(t, path);
@@ -505,6 +513,21 @@ ipAddress = function(interface = "eth0") {
 	ip
 }
 
+#
+#	<p> io
+#
+
+# Capture.ouput(..., type = c('input', 'output', 'merged', 'all', 'none', 'discard'), split = c('input', 'output', 'all', 'none'), append = c('input', 'output', 'all', 'none'), return = T)
+silence = function(expr, verbose = F) {
+	if (verbose) eval(expr) else {
+		sink('/dev/null', type = 'output');
+		sink(stdout(), type = 'message');
+		r = eval(expr);
+		sink(type = 'message');
+		sink(type = 'output');
+		r
+	}
+}
 
 #
 #	<p> cluster abstraction
@@ -821,6 +844,14 @@ compressedConnectionPath = function(conn) {
 #	<p> readTable
 #
 
+readTableSplitToDict = function(e){
+	r = lapply(splitString(';', e), function(e) {
+		r = splitString(':', e);
+		listNamed(list(shift(r)), r[1])
+	});
+	unlist.n(r, 1)
+}
+
 # complete: return only complete data with respect to specified colums
 # NA: specify 'NA'-values
 readTableSepMap = list(T = "\t", S = ' ', C = ',', `;` = ';', `S+` = '');
@@ -832,7 +863,9 @@ optionParser = list(
 	ROW.NAMES = function(e)list(T = T, F = F)[[e]],
 	NAMES = function(e)splitString(';', e),
 	FACTORS = function(e)splitString(';', e),
+	NUMERIC = function(e)splitString(';', e),
 	DATE = function(e)splitString(';', e),
+	DATEF = readTableSplitToDict,
 	PROJECT = function(e)splitString(';', e),
 	`NA` = function(e)splitString(';', e),
 	complete = function(e)splitString(';', e),
@@ -843,19 +876,9 @@ optionParser = list(
 		});
 		unlist.n(r, 1)
 	},
-	HEADERMAP = function(e){ r = lapply(splitString(';', e), function(e){
-			r = splitString(':', e);
-			listKeyValue(r[1], r[2])
-		});
-		unlist.n(r, 1)
-	},
+	HEADERMAP = readTableSplitToDict,
 	# tb implemented: <i>: merge.lists recursive
-	VALUEMAP = function(e){ r = lapply(splitString(';', e), function(e){
-			r = splitString(':', e);
-			listKeyValue(r[1], r[2])
-		});
-		unlist.n(r, 1)
-	},
+	VALUEMAP = readTableSplitToDict,
 	COLNAMESFILE = identity,
 	SHEET = as.integer,
 	SKIP = as.integer,
@@ -876,10 +899,12 @@ splitExtendedPath = function(path) {
 }
 path2simple = function(pathes)sapply(pathes, function(path)splitExtendedPath(path)$path);
 
-readTable.ods = function(path, options = NULL) {
+readTable.ods = function(path, options = NULL, verbose = F) {
 	Require('readODS');
 	sheet = firstDef(options$SHEET, 1);
-	read_ods(path, sheet = sheet, col_names = options$HEADER);
+	silence(read_ods(path, sheet = sheet, col_names = options$HEADER),
+		verbose = firstDef(options$VERBOSE, verbose)
+	);
 }
 
 # <!> changed SEP default "\t" -> ",", 20.5.2015
@@ -901,13 +926,19 @@ readTable.txt = readTable.csv = function(
 spssDate = function(date, tz = 'MET', spss.origin = as.POSIXct('2003/02/11', tz = tz) - 13264300800)
 	(spss.origin + date)
 
+# convert "labelled" columns to factors
+haven2earth = function(d)Df_(lapply(d, function(c) if (is.labelled(c)) as_factor(c) else c))
+
 readTable.SAV = readTable.sav = function(path, options = NULL, headerMap = NULL, stringsAsFactors = F) {
-	Require('foreign');
 	# read file
-	r0 = suppressWarnings(read.spss(path));
+	#Require('foreign');
+	#r0 = suppressWarnings(read.spss(path));
+	Require('haven');
+	r0 = haven2earth(suppressWarnings(read_spss(path)));
 	r1 = as.data.frame(r0, stringsAsFactors = stringsAsFactors);
-	if (notE(options$DATE))
-		r1[, options$DATE] = do.call(data.frame, lapply(r1[, options$DATE, drop = F], spssDate));
+# 	if (notE(options[['DATE']]))
+# 		r1[, options[['DATE']]] = do.call(data.frame,
+# 			lapply(r1[, options[['DATE']], drop = F], spssDate));
 	r1
 }
 
@@ -963,6 +994,13 @@ tableFunctionForPathReader = function(path, template = 'readTable.%{ext}s', defa
 	m
 }
 
+readTableDate = function(o, colName, col, defaultTz = 'MET') {
+	dateFormat = o$DATEF[[colName]];
+	r = strptime(col, dateFormat[1], tz = firstDef(dateFormat[2], defaultTz));
+	r
+}
+
+
 readTable.defaultOptions = list(HEADER = TRUE);
 # <!> as of 23.5.2014: headerMap after o$NAMES assignment
 # <i> use tableFunctionForPath
@@ -1010,7 +1048,9 @@ readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, c
 	if (!is.null(o$CONST)) { for (n in names(o$CONST)) r[[n]] = o$CONST[[n]]; }
 	if (!is.null(as_factor)) r = Df_(r, as_factor = as_factor);
 	if (Nif(o$FACTORS)) r = Df_(r, as_factor = o$FACTORS);
+	if (Nif(o$NUMERIC)) r = Df_(r, as_numeric = o$NUMERIC);
 	if (!is.null(o$DELETE)) r = r[-o$DELETE, , drop = F];
+	if (notE(o[['DATEF']])) { for (n in names(o$DATEF)) r[[n]] = readTableDate(o, n, r[[n]]); }
 	r
 }
 
@@ -1364,12 +1404,18 @@ activateModule = function(path) {
 #	<p> sqlite
 #
 
-sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL) {
-	# <p> create database
+sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, unique = list()) {
+	# <p> types
 	types = merge.lists(listKeyValue(columns, rep('text', length(columns))), types);
+	# <p> cols
+	cols = join(sep = ', ', sapply(columns, function(e)sprintf('%s %s', e, types[e])));
+	# <p> unique constraints
+	#UNIQUE (col_name1, col_name2) ON CONFLICT REPLACE)
+	unique = circumfix(join(sapply(unique, function(u) {
+		Sprintf('UNIQUE (%{cols}s) ON CONFLICT FAIL', cols = join(u, ', '))
+	}), ', '), pre = ' , ');
 	createDbSql = join(sep = "\n", c(
-		sprintf('CREATE TABLE data (%s);',
-			join(sep = ', ', sapply(columns, function(e)sprintf('%s %s', e, types[e])))),
+		Sprintf('CREATE TABLE data (%{cols}s%{unique}s);'),
 		if (is.null(index)) c() else sapply(1:length(index), function(i)
 			sprintf('CREATE INDEX index_%d ON data (%s);', i, join(index[[i]], sep = ', '))),
 		'.quit', ''
@@ -1389,7 +1435,9 @@ csv2sqlite = function(path, output = tempfile(),
 	columnsNames = NULL, columnsSelect = NULL,
 	index = NULL,
 	inputSep = 'T', inputHeader = T, inputSkip = NULL,
-	NULLs = NULL, types = list()) {
+	NULLs = NULL, types = list(), newDb = T, unique = list()) {
+	if (is.null(output)) stop(Sprintf('No ouput path given for sqlite DB [NULL]@csv2sqlite'));
+	if (newDb) file.remove(output);
 
 	# <!> cave: does not heed skip
 	if (!inputHeader && is.null(columnsNames)) {
@@ -1405,7 +1453,7 @@ csv2sqlite = function(path, output = tempfile(),
 	} else '';
 	columns = if (is.null(columnsSelect)) columnsNames else columnsSelect;
 	types = merge.lists(listKeyValue(columns, rep('text', length(columns))), types);
-	sqlCreateTable(columns, types, index, createAt = output);
+	sqlCreateTable(columns, types, index, createAt = output, unique = unique);
 
 	# <p> import data
 	skipCommand = if (is.null(inputSkip)) '' else sprintf('| tail -n +%d ', inputSkip + 1);
@@ -1422,7 +1470,7 @@ csv2sqlite = function(path, output = tempfile(),
 	cmd = Sprintf(con(
 		"%{reader}s %{path}Q %{skipCommand}s %{cut}s %{filter}s",
 		" | sqlite3 -init %{importSql}Q %{output}Q"));
-	System(cmd, 1);
+	System(cmd, 2);
 	output
 }
 # <!> unfinished, siphones code from old csv2sqlite function
@@ -1459,10 +1507,35 @@ sqliteOpen = function(path) {
 	Require('RSQLite');
 	dbConnect(SQLite(), dbname = path);
 }
+
+sqliteQueryParticle = function(q) {
+	opRaw = if(length(q) > 2) q[[2]] else 'equal';
+	op = switch(opRaw,
+		equal = '=',
+		`<` = '<',
+		`>` = '>',
+		`< Int` = '<',
+		`> Int` = '>'
+	);
+	add = if (opRaw %in% c('< Int', '> Int')) ' + 0' else '';
+	value = if(length(q) > 2) q[[3]] else q[[2]];
+	value = if (opRaw %in% c('< Int', '> Int')) value else Sprintf('%{value}Q');
+	with(q, Sprintf('%{name}Q%{add}s %{op}s %{value}s'));
+}
+sqliteBuildQuery = function(table, query, distinct = TRUE) {
+	ns = names(query);
+	qs = ilapply(query, function(q, i)sqliteQueryParticle(c(list(name = ns[i]), q)));
+	condition = join(unlist(qs), sep = ' AND ');
+	isDistinct = if (distinct) 'DISTINCT' else '';
+	query = Sprintf('SELECT %{isDistinct}s * FROM %{table}Q WHERE %{condition}s');
+	query
+}
+
 sqliteQuery = function(db, query, table = NULL) {
 	if (is.null(table)) table = dbListTables(db)[1];
-	query = con(sapply(names(query), function(n)Sprintf('%{n}Q = %{v}s', v = qs(query[[n]], force = T))));
-	query1 = Sprintf('SELECT * FROM %{table}Q WHERE %{query}s');
+# 	query = con(sapply(names(query), function(n)Sprintf('%{n}Q = %{v}s', v = qs(query[[n]], force = T))));
+# 	query1 = Sprintf('SELECT * FROM %{table}Q WHERE %{query}s');
+	query1 = sqliteBuildQuery(table, query);
 	Log(query1, 5);
 	dbGetQuery(db, query1);
 }
@@ -1656,3 +1729,41 @@ ReinstallFromVersion = function(version, n = 1, type = 'source') {
 agenda = function()system('bash -l', input = c('shopt -s expand_aliases', 'agenda'))
 agenda_stop = function()system('bash -l', input = c('shopt -s expand_aliases', 'agenda-stop'))
 runTests = function()system('RrunTests')
+
+#
+#	<p> random numbers
+#
+
+getRandomSeed = function(tag = date()) {
+	md5 = md5sumString(join(c(getwd(), tag)));
+	is = hex2ints(md5);
+	seed = is[1];
+	for (i in 2:length(is)) { seed = bitwXor(seed, is[i]); }
+	seed
+}
+
+#
+#	<p> Reporting
+#
+
+# Knit('dir/input.Rmd')
+Knit = function(input, output = NULL, ..., format = 'html') {
+	Require('knitr');
+	Require('markdown');
+	sp = splitPath(input);
+# 	knit(input, output = with(sp, Sprintf('%{fullbase}s.md')));
+# 	switch(format,
+# 		'html' = markdownToHTML(with(sp, Sprintf('%{fullbase}s.md')), with(sp, Sprintf('%{fullbase}s.html')))
+# 	)
+	owd = getwd();
+	setwd(sp$dir);
+	for (f in format) {
+		switch(f,
+			'html' = rmarkdown::render(sp$file,
+				output_format = rmarkdown::html_document(),
+				output_file = with(sp, Sprintf('%{base}s.html')), ...)
+		)
+	}
+	setwd(owd);
+}
+

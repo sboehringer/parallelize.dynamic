@@ -824,7 +824,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 #'   parallelize_declare(source = 'mySourceFile.R', packages = 'glmnet');
 #' 
 parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, reset = TRUE, config = NULL,
-	salt = NULL) {
+	salt = NULL, activeDictionary = 'native') {
 	Lapply_config = Lapply_createConfig();
 	# <p> config
 	sourceFiles = unique(c(if (!reset) Lapply_config$sourceFiles else c(), source));
@@ -836,7 +836,10 @@ parallelize_declare = function(source = NULL, packages = NULL, copy = NULL, rese
 		Lapply_config_default,
 		Lapply_config,
 		config,
-		list(sourceFiles = sourceFiles, libraries = libraries, copyFiles = copyFiles, salt = salt)
+		list(
+			sourceFiles = sourceFiles, libraries = libraries, copyFiles = copyFiles,
+			salt = salt, activeDictionary = activeDictionary
+		)
 	);
 	Lapply_setConfig(newConfig);
 }

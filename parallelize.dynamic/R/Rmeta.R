@@ -2,9 +2,9 @@
 #	Rmeta.R
 #Wed Jun  3 15:11:27 CEST 2015
 #Mon 27 Jun 2005 10:49:06 AM CEST
-#system("cd ~/src/Rprivate ; ./exportR.sh");
-#system("cd ~/src/Rprivate ; ./exportR.sh"); source("RgenericAllRaw.R"); source("Rgenetics.R"); loadLibraries();
-#system('WD=`pwd` ; cd ~/src/Rprivate ; ./exportR.sh ; cp RgenericAllRaw.R $WD ; cd $WD');
+#system("~/src/Rprivate/exportR.sh");
+#system("~/src/Rprivate/exportR.sh"); source("RgenericAllRaw.R"); source("Rgenetics.R"); loadLibraries();
+#system('. ~/src/Rprivate/exportR.sh ; cp ~/src/Rprivate/RgenericAllRaw.R .');
 
 #
 #	<p> Meta-helpers
@@ -50,6 +50,9 @@ Log = function(o, level = get('DefaultLogLevel', envir = Log_env__), doPrint = N
 }
 Logs = function(o, level = get('DefaultLogLevel', envir = Log_env__), ..., envir = parent.frame()) {
 	Log(Sprintf(o, ..., envir = envir), level = level);
+}
+LogS = function(level, s, ..., envir = parent.frame()) {
+	Log(Sprintf(s, ..., envir = envir), level = level);
 }
 
 Log.level = function()get('GlobalLogLevel', envir = Log_env__);

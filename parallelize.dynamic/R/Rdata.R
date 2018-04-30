@@ -1120,11 +1120,20 @@ listKV = listKeyValue = function(keys, values) {
 	names(l) = keys;
 	l
 }
+listNamed = function(l, names)setNames(l, names)
 vectorNamed = function(v, names) {
 	if (length(names) > length(v)) stop("vectorNamed: more names than vector elements");
 	names(v) = names;
 	v
 }
+
+vn = vectorNormed = function(v, type = 'O') {
+	v0 = as.matrix(v);
+	v0n = apply(v0, 2, function(v)norm(as.matrix(v), type = type));
+	r = if (!is.matrix(v)) v/v0n else sapply(1:ncol(v), function(i) v[, i] / v0n[i]);
+	r
+}
+
 #listInverse = function(l)listKeyValue(avu(l), names(l));
 listInverse = function(l, toNA = F) {
 	n = sapply(l, length);
@@ -1531,7 +1540,7 @@ ListOfLists2df = function(l,
 }
 
 
-# d: data frame, l: list with names corresponding to cols, values to be searched for in columns
+# # d: data frame, l: list with names corresponding to cols, values to be searched for in columns
 searchDataFrame = function(d, l, .remove.factors = T) {
 	ns = names(l);
 	d = d[, ns, drop = F];
@@ -1899,10 +1908,16 @@ Table = function(v, min, max, ...) {
 }
 
 #
-#	<par> data types
+#	<p> numeric function
 #
 
 to.numeric = function(x) { suppressWarnings(as.numeric(x)) }
+minFloor = function(x)(x - floor(x))
+
+#
+#	<par> data types
+#
+
 
 # set types for columns: numeric: as.numeric
 data.frame.types = function(df, numeric = c(), character = c(), factor = c(), integer = c(),
@@ -2977,9 +2992,16 @@ Reshape.long.raw = function(d, vars, lvMap, factorColumn = 'repeat',
 
 Reshape.levelMap_re = function(ns, vars, factorsRe) {
 	# regular expressions for columns to be reshaped
-	Res = paste(vars, factorsRe, sep = '');
+	Res = sapply(vars, function(v)Sprintf(factorsRe, COLIDENT = v));
+	# perform RE search
+	lvlsRaw = Regex(Res, ns);
+	lvlsRawL = sapply(lvlsRaw, length);
+	if (!all(lvlsRawL == lvlsRawL[1])) {
+		print(lvlsRaw);
+		stop('Different number of levels per factor');
+	}
 	# levels of index/reshape column
-	cols = Df_(Regex(Res, ns), names = vars);
+	cols = Df_(lvlsRaw, names = vars);
 	# level belonging to column (non-simplifying Regex)
 	lvCol = RegexL(Res, ns, captures = T);
 	# prepare level -> column mapping
@@ -3022,7 +3044,7 @@ Reshape.levelMap = function(ns, vars, factorsRe) {
 #	vars: prefix of columns to be reshaped
 #	factorsRe: re to append to vars to identify wide columns
 Reshape.long = function(d, vars, factorColumn = 'repeat', valuePostfix = '_long',
-	factors = NULL, factorsRe = '[._]?(\\d+)', useDisk = F, rowNamesAs = NULL,
+	factors = NULL, factorsRe = '^%{COLIDENT}s[._]?(\\d+)', useDisk = F, rowNamesAs = NULL,
 	varsLong = paste(vars, valuePostfix, sep = '')) {
 
 	lvMap = Reshape.levelMap(names(d), vars, factorsRe);
@@ -3263,6 +3285,14 @@ data.vars.after = function(data, col, skip = T) {
 	ns[(which(ns == col) + skip):length(ns)]
 }
 
+dataColRange = function(data, from = NULL, to = NULL) {
+	ns = names(data);
+	start = if (is.integer(from)) from else (if (notE(from)) which(ns == from) else 1);
+	stop = if (is.integer(to)) to else (if (notE(to)) which(ns == to) else ncol(data));
+	data[, start:stop, drop = F]
+}
+
+
 # select column names based on res, negation or literal names
 # dataSelectVars(data, ~ cg + ab, ~ 0)
 # dataSelectVars(data, list(~ cg, ~ !ab))
@@ -3306,9 +3336,11 @@ formula.add.responseByName = function(f0, response, envir = parent.frame()) {
 formula.add.response = function(f0, f1, envir = parent.frame()) {
 	formula.add.responseByName(f0, formula.response(f1), envir = envir)
 }
+# <!><t> w/ transformations in formula
 formula.predictors = function(f, data, dataFrameNames = TRUE) {
 	if (formula.rhs(f) == ~ 1) return('(Intercept)');
-	mm = model.matrix(model.frame(formula.rhs(f), data), data);
+	#mm = model.matrix(model.frame(formula.rhs(f), data), data);
+	mm = model.matrix(formula.rhs(f), data);
 	ns = dimnames(mm)[[2]];
 
 	# <p> create data frame to extract proper names
