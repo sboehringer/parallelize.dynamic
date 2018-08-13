@@ -4,6 +4,11 @@
 
 # script to update external dependencies that cannot be handled through version control
 
+PACKAGEBASE=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/../
+
+pushd $PACKAGEBASE/dev
+
+
 #
 #	<p> perl dependencies
 #
@@ -25,3 +30,5 @@ cp $RPRIVATE/Rdata.R $RPRIVATE/Rsystem.R $RPRIVATE/Rfunctions.R $RPRIVATE/Rmeta.
 #
 #cp $RPRIVATE/Rparallel.R $RPRIVATE/Rparallel.back.R $RPRIVATE/Rparallel_setEnable_pkg.R R
 #cp $RPRIVATE/Rparallel_functions_parallel.R $RPRIVATE/Rparallel_functions_std.R inst/R
+
+popd

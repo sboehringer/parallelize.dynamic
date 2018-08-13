@@ -4,9 +4,10 @@
 package PropertyList;
 require 5.000;
 require Exporter;
+use Set;
 
 @ISA       = qw(Exporter);
-@EXPORT    = qw(&propertyFromString &stringFromProperty &quoteApostrophes &dequoteApostrophes &xmlFromProperty &propertyFromXml &propertyFromStringFast &propertyFromStringFastRaw);
+@EXPORT    = qw(&propertyFromString &stringFromProperty &quoteApostrophes &dequoteApostrophes &xmlFromProperty &propertyFromXml &propertyFromStringFast &propertyFromStringFastRaw &propertyFromStringExt &plistInterpolate &propertyListTraverse);
 
 $DEBUG = 0;
 
@@ -379,6 +380,87 @@ sub propertyFromStringFast { my($plist, $options)=@_;
 	$plist =~ s{$commentRE}{}sog;
 	my @tokens = ($plist =~ m{(${stringRE}|[(]|[)]|[{]|[}]|[=]|[,]|[;]|<.*?>)}sog);
 	return propertyFromStringFastRaw([@tokens])
+}
+
+#pattern
+# #------------------------------------------------------------------------------------------------------------
+# #CODEFILE
+my %seplDefaults = ( REstart => '^#[-]{80,}', REname => '^#(.*)' );
+sub splitExtendedPlist { my ($s, %c) = @_;
+	%c = ( %seplDefaults, %c );
+	my @lines = split(/\n/, $s);
+	my $start = 0;
+	my $plist;
+	my %names = ();
+	my $currentName;
+
+	my $i;
+	for ($i = 0; $i < @lines; $i++) {
+		if ($lines[$i] =~ $c{REstart}) {
+			my $section = join("\n", @lines[$start .. ($i - 1)]);
+			# <p> indicate stop of plist section
+			if ($start == 0) {	# first section <=> plist
+				$plist = $section;
+			} else {
+				$names{$currentName} = $section;
+			}
+			die "Expected name list @ line $i; input exhausted" if ($i == @lines);
+			($currentName) = ($lines[++$i] =~ $c{REname});
+			die "no name list found at @ line $i" if (!defined($currentName));
+			#Log("Registering name: $currentName", 6);
+			$start = $i + 1;
+		}
+	}
+	# corner case: last element
+	my $section = join("\n", @lines[$start .. ($i - 1)]);
+	if (defined($currentName)) {
+		$names{$currentName} = $section;
+	# corner case: plist without verbatim sections
+	} else {
+		$plist = $section;
+	}
+	return { propertyList => $plist, interpolation => { %names } };
+}
+
+sub propertyListTraverseRaw { my($plist, $c)=@_;
+	#Log("Plist traversal enter...", 7);
+	if ( !ref($plist) ) {	# determine data vs string
+		#Log("Plist traversal reached String", 7);
+		if ($plist =~ m{[\x00-\x08\x80-\x9f\x7f\xff]}o && defined($c->{fData})) {	# data encoding
+			$plist = $c->{fData}($plist, $c->{c});
+		} elsif (defined($c->{fString})) { $plist = $c->{fString}($plist, $c->{c}); }
+	} elsif ( ref($plist) eq 'ARRAY' ) {
+		#Log("Plist traversal reached Array", 7);
+		$plist = [ map { propertyListTraverseRaw($_, $c) } @$plist ];
+		$plist = $c->{fArray}($plist, $c->{c}) if (defined($c->{fArray}));
+	} elsif ( ref($plist) eq 'HASH' ) {
+		#Log("Plist traversal reached Dict", 7);
+		my $plistKeys = [ map { propertyListTraverseRaw($_, $c) } keys %$plist ];
+		my $plistValues = [ map { propertyListTraverseRaw($_, $c) } values %$plist ];
+		$plist = makeHash($plistKeys, $plistValues);
+		$plist = $c->{fDict}($plist, $c->{c}) if (defined($c->{fDict}));
+	} else {
+		die "Unknown Plist type: ". ref($plist);
+	}
+	return $plist;
+}
+
+# c: fString => function handling strings, fArray, fDict, c: context
+sub propertyListTraverse { my ($plist, $c) = @_;
+	propertyListTraverseRaw($plist, $c);
+}
+
+sub plistInterpolateString { my ($s, $i) = @_;
+	return (defined($i->{$s}))? $i->{$s}: $s;
+}
+
+sub plistInterpolate { my ($plist, $i) = @_;
+	return propertyListTraverse($plist, { fString => \&plistInterpolateString, c => $i });
+}
+
+sub propertyFromStringExt { my ($s, $c) = @_;
+	my $plRaw = splitExtendedPlist($s);
+	return plistInterpolate(propertyFromStringFast($plRaw->{propertyList}), $plRaw->{interpolation});
 }
 
 1;

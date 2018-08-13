@@ -46,7 +46,8 @@ my $locale = undef;
 
 sub locale {
 	return $locale if ($locale);
-	eval("use Locale::Locale");
+	#eval("use Locale::Locale");
+	load('Locale::Locale');
 	$locale = Locale::Locale->new();
 	return $locale;
 }
@@ -1136,7 +1137,7 @@ sub splitPathDict { my ($path, $doTestDir, $fileNameToSubstitue, %c)=@_;
 	my ($user, $host, $pathN);
 	$path = $pathN
 		if ((($user, $host, $pathN)
-		= ($path =~ m{^(?:(\w+)\@)?(?:(\w+):)(.*)}goi)) && $c{testRemote});
+		= ($path =~ m{^(?:(\w+)\@)?(?:([\w-]+):)(.*)}goi)) && $c{testRemote});
 	my ($directory, $filename, $ext) = splitPath($path, $doTestDir, $fileNameToSubstitue);
 	my $base = defined($ext)? substr($filename, 0, - length($ext) - 1): $filename;
 	my $dirPrefix = defined($directory)? ($directory eq '/'? '/': "$directory/"): '';

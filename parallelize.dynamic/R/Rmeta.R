@@ -61,6 +61,9 @@ Log.setLevel = function(level = get('GlobalLogLevel', envir = Log_env__)) {
 }
 Log.setLevel(4);	# default
 
+Stop = function(..., call. = TRUE, domain = NULL, envir = parent.frame()) {
+	stop(Sprintf(list(...)[[1]], envir = envir), call., domain)
+}
 
 #
 #	<p> Meta-functions

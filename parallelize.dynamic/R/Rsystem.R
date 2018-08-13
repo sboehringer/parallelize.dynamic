@@ -148,8 +148,8 @@ File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel =
 	symbolicLinkIfLocal = T) {
 	spF = splitPath(from, ssh = T);
 	spT = splitPath(to, ssh = T);
-	is.remote.f = !spF$is.remote || spF$host == 'localhost';
-	is.remote.t = !spT$is.remote || spT$host == 'localhost';
+	is.remote.f = spF$is.remote || spF$host == 'localhost';
+	is.remote.t = spT$is.remote || spT$host == 'localhost';
 
 	r = if (!is.remote.f && !is.remote.t) {
 		if (symbolicLinkIfLocal) {
@@ -864,6 +864,7 @@ optionParser = list(
 	NAMES = function(e)splitString(';', e),
 	FACTORS = function(e)splitString(';', e),
 	NUMERIC = function(e)splitString(';', e),
+	AS_CHARACTER = function(e)splitString(';', e),
 	DATE = function(e)splitString(';', e),
 	DATEF = readTableSplitToDict,
 	PROJECT = function(e)splitString(';', e),
@@ -920,6 +921,7 @@ readTable.txt = readTable.csv = function(
 	if (!is.null(headerMap)) names(t) = vector.replace(names(t), headerMap);
 	if (!is.null(setHeader)) names(t) =  c(setHeader, names(t)[(length(setHeader)+1): length(names(t))]);
 	if (!is.null(options$FACTORS)) t = Df_(t, as_factor = options$FACTORS);
+	if (!is.null(options$AS_CHARACTER)) t = Df_(t, as_character = options$AS_CHARACTER);
 	t
 }
 
@@ -1666,19 +1668,20 @@ clearWarnings = function()assign('last.warning', NULL, envir = baseenv())
 #	<p> packages
 #
 
-LibraryRaw = function(name, ..., repos, repoNoInteraction, repoDefault, quietly, reposSupplementary) {
+LibraryRaw = function(name, ..., repos, repoNoInteraction, repoDefault, quietly,
+	dependencies, reposSupplementary) {
 	# force evaluation
 	#if (!Eval(Sprintf('require(%{name}s)'))) {
 	if (!Require(name, character.only = TRUE, quietly = TRUE)) {
 		if (repoNoInteraction) repos[repos == '@CRAN@'] = repoDefault[1];
 		repos = c(repos, reposSupplementary);
 		#expr = Sprintf('install.packages(%{name}s)');
-		r = try(install.packages(name, repos = repos, ...));
+		r = try(install.packages(name, repos = repos, ..., dependencies = dependencies));
 		# if installation from CRAN fails, try bioconductor
 		Log(Sprintf('Trying to install "%{name}s" from bioconductor'), 5);
 		if (is.null(r) || class(r) == 'try-error') {
 			if (!exists('biocLite')) source("https://bioconductor.org/biocLite.R");
-			biocLite(name, suppressUpdates = TRUE, suppressAutoUpdate = TRUE)
+			biocLite(name, suppressUpdates = TRUE, suppressAutoUpdate = TRUE, dependencies = dependencies)
 		}
 		#Eval(Sprintf('library(%{name}s)'));
 		library(name, character.only = TRUE, quietly = quietly);
@@ -1686,14 +1689,27 @@ LibraryRaw = function(name, ..., repos, repoNoInteraction, repoDefault, quietly,
 }
 
 # name has to be character of length 1
-Library = function(name, ...,
+LibrarySingle = function(name, ...,
 	repos = getOption('repos'), repoNoInteraction = TRUE, repoDefault = "http://cran.rstudio.com",
-	quietly = TRUE, reposSupplementary = 'http://www.rforge.net/') {
+	quietly = TRUE, dependencies = TRUE, reposSupplementary = 'http://www.rforge.net/') {
 
 	wrapper = if (quietly) suppressWarnings else eval;
-	wrapper(LibraryRaw(name, ...,
-		repos = repos, repoNoInteraction = repoNoInteraction, repoDefault = repoDefault,
-		quietly = quietly, reposSupplementary = reposSupplementary));
+	for (name in name) {
+		wrapper(LibraryRaw(name, ...,
+			repos = repos, repoNoInteraction = repoNoInteraction, repoDefault = repoDefault,
+			quietly = quietly, dependencies = dependencies, reposSupplementary = reposSupplementary));
+	}
+}
+Library = function(name, ...,
+	repos = getOption('repos'), repoNoInteraction = TRUE, repoDefault = "http://cran.rstudio.com",
+	quietly = TRUE, dependencies = TRUE, reposSupplementary = 'http://www.rforge.net/') {
+
+	for (name in name) {
+		LibrarySingle(name, ..., repos = repos, repoNoInteraction = repoNoInteraction,
+			repoDefault = repoDefault, quietly = quietly,
+			dependencies = dependencies, reposSupplementary = reposSupplementary
+		);
+	}
 }
 Require = function(..., quietly = TRUE) {
 	wrapper = if (quietly) function(call_)suppressWarnings(suppressPackageStartupMessages(call_)) else eval

@@ -122,6 +122,7 @@ mat.sel = function(m, v, dir = 1) {
 
 # rbind on list
 simplify = sapplyId = function(l)sapply(l, identity);
+Simplify = function(l)unlist(simplify(l));
 
 listFind = function(lsed, lsee) {
 	values = sapply(names(lsee), function(n)list.key(lsed, n), simplify = F, USE.NAMES = F);
@@ -175,6 +176,20 @@ circumfix = function(s, post = NULL, pre = NULL) {
 }
 abbr = function(s, Nchar = 20, ellipsis = '...') {
 	ifelse(nchar(s) > Nchar, paste(substr(s, 1, Nchar - nchar(ellipsis)), ellipsis, sep = ''), s)
+}
+wrapStr = function(s, Nchar = 60, regex = '\\s+', indent = "\n") {
+	r = '';
+	while (nchar(s) > Nchar) {
+		R = gregexpr('\\s+', s, perl = T);
+		Iws = R[[1]][R[[1]] <= Nchar];
+		Ichr = max(Iws);
+		# <i> handle Ichr = 1
+		r = con(r, substr(s, 1, Ichr - 1), indent);
+		s = substr(s, Ichr + attr(R[[1]], 'match.length')[length(Iws)], nchar(s));
+
+	}
+	r = con(r, s);
+	return(r);
 }
 
 Which.max = function(l, last.max = T, default = NA) {
@@ -295,6 +310,11 @@ matchRegexCapture = function(reg, str, pos = NULL) {
 	names(captures) = attr(reg, 'capture.names');
 	captures
 }
+MatchRegexExtract = function(m, s, pos = seq_along(m)) {
+	matches = ifelse(m[pos] < 0, character(0),
+		sapply(pos, function(i)Substr(s[i], m[i], attr(m, 'match.length')[i])));
+	matches
+}
 matchRegexExtract = function(reg, str, pos = NULL) {
 	if (!is.null(pos)) str = str[pos] else pos = seq_along(reg);
 	matches = ifelse(reg[pos] < 0, character(0),
@@ -340,9 +360,47 @@ MatchRegex = function(re, str, mode = 'return') {
 	}
 	r
 }
+# handle attributes
+As.list = function(v) {
+	as = Recycle(attributes(v));
+	l = lapply(seq_along(v), function(i) {
+		Attr(v[i], list.kp(as, Sprintf('[[%{i}d]]')))
+	});
+	l
+}
+
+
+# interface as of 2018/06
+# if re is vector, iterate over
+# by default, return matches
+RegexprSingle = function(re, s, captures = F, global = T, simplify = T, concatMatches = T, drop = T) {
+	matches = if (global) gregexpr(re, s, perl = T) else As.list(regexpr(re, s, perl = T));
+	r = pairslapply(matches, s, function(m, s) {	# iterate strings
+		if (captures) {
+			r = matchRegexCapture(m, s);
+			if (concatMatches) r = apply(do.call(cbind, r), 1, join, sep = '');
+		} else {
+			r = MatchRegexExtract(m, s);
+			if (drop) r = r[!is.na(r)];
+		}
+		r
+	});
+	if (simplify && (
+		(length(s) == 1 && captures && concatMatches)
+	)) r = r[[1]];
+	if (simplify && !global) r = Simplify(r);
+	return(r);
+}
+
+Regexpr = function(re, s, ..., reSimplify = T) {
+	r = lapply(re, RegexprSingle, s = unlist(s), ...);
+	if (length(re) == 1 && reSimplify) r = r[[1]];
+	return(r);
+}
 
 splitString = function(re, str, ..., simplify = T) {
 	l = lapply(str, function(str) {
+		if (is.na(str)) return(NA);
 		r = gregexpr(re, str, perl = T, ...)[[1]];
 		if (r[1] < 0) return(str);
 		l = sapply(1:(length(r) + 1), function(i) {
@@ -352,6 +410,17 @@ splitString = function(re, str, ..., simplify = T) {
 	});
 	if (length(l) == 1 && simplify) l = l[[1]];
 	l
+}
+# modeled after perl's qq
+reString = '(?:([_\\/\\-a-zA-Z0-9.]+)|(?:\\"((?:\\\\\\\\.)*(?:[^"\\\\]+(?:\\\\\\\\.)*)*)\\"))';
+# use reSep = '\\s+' to split based on a separator RE
+qw = function(s, re = reString, reSep = NULL, names = NULL, byrow = T) {
+	r = if (notE(reSep)) unlist(splitString(reSep, s)) else {
+	#r = if (T) unlist(splitString('\\s+', s)) else
+		unlist(Regexpr(re, unlist(s), captures = T));
+	}
+	if (notE(names)) r = Df_(matrix(r, ncol = length(names), byrow = byrow), names = names);
+	r
 }
 quoteString = function(s)sprintf('"%s"', s)
 trimString = function(s) {
@@ -1020,7 +1089,7 @@ list.kprw = function(l, keys, unlist.pats, template, null2na, carryNames, test) 
 				list.kprw(r, keys[-1], unlist.pats[-1], template, null2na, carryNames, test) else
 				if (test) !(is.null(r) || all(is.na(r))) else r;
 		} else if (class(l) %in% c('character')) {
-			l[names(l) %in% key];
+			if (notE(names(l))) l[names(l) %in% key] else l[key]
 		} else if (class(l) %in% c('data.frame', 'matrix')) {
 			l[, key]
 		} else if (class(l) %in% c('numeric', 'integer')) {
@@ -1039,7 +1108,7 @@ list.kprw = function(l, keys, unlist.pats, template, null2na, carryNames, test) 
 			) else l;
 	}
 	# <p> unlisting
-	if (!is.null(unlist.pats)) if (unlist.pats[1]) r = unlist.n(r, 1, reset = carryNames);
+	if (notE(unlist.pats)) if (unlist.pats[1]) r = unlist.n(r, 1, reset = carryNames);
 	r
 }
 
@@ -1073,7 +1142,7 @@ list.kp.keys = function(keyPath) fetchRegexpr("[^$]+", keyPath);
 list.kpr = function(l, keyPath, do.unlist = F, template = NULL,
 	null2na = F, unlist.pat = NULL, carryNames = T, as.matrix = F, test = F) {
 	keys = list.kp.keys(keyPath);
-	unlist.pats = if (!is.null(unlist.pat)) as.logical(fetchRegexpr("[^$]+", unlist.pat)) else NULL;
+	unlist.pats = if (notE(unlist.pat)) as.logical(fetchRegexpr("[^$]+", unlist.pat)) else NULL;
 
 	# parallel keys
 	#r = list.kprwkp(l, keyPath, unlist.pats, template, null2na, carryNames, test = test);
@@ -1085,9 +1154,10 @@ list.kpr = function(l, keyPath, do.unlist = F, template = NULL,
 # extract key path from list
 # <!> interface change: unlist -> do.unlist (Wed Sep 29 18:16:05 2010)
 # test: test existance instead of returning value
-list.kp = function(l, keyPath, do.unlist = F, template = NULL, null2na = F, test = F) {
+list.kp = function(l, keyPath, do.unlist = F, template = NULL, null2na = F, test = F, n) {
 	r = list.kpr(l, sprintf("*$%s", keyPath), do.unlist = do.unlist,
 		template = template, null2na = null2na, test = test);
+	if (!missing(n)) r = unlist.n(r, n);
 	r
 }
 
@@ -1097,6 +1167,12 @@ list.keys = function(l, keys, default = NA) {
 	l = as.list(l);
 	r = lapply(unlist(keys), function(key) if (is.null(l[[key]])) default else l[[key]]);
 	r
+}
+
+null2na = function(l) {
+	if (!length(l)) return(l);
+	l[sapply(l, is.null)] = NA;
+	return(l);
 }
 
 
@@ -1190,8 +1266,9 @@ pairsapplyLV = function(l1, l2, f, ..., simplify = T, USE.NAMES = TRUE) {
 	r
 }
 pairslapply = function(l1, l2, f, ...) {
-	if (length(l1) != length(l2)) stop('pairlapply: pair of collections of unequal length.');
+	if (length(l1) != length(l2)) stop('pairslapply: pair of collections of unequal length.');
 	r = lapply(seq_along(l1), function(i)f(l1[[i]], l2[[i]], ...));
+	names(r) = names(l1);
 	r
 }
 
@@ -1600,9 +1677,24 @@ searchDataFrame = function(d, l, .remove.factors = T) {
 	d0
 }
 
-Cbind = function(..., stringsAsFactors = FALSE) {
+# alignByRowNames: logical: use row.names from first element, else use provided vector
+Cbind = function(..., stringsAsFactors = FALSE, deparse.level = 0, alignByRowNames = NULL) {
 	l = list(...);
-	if (length(l) == 1) t_(l[[1]]) else cbind(..., deparse.level = 0)
+	if (notE(alignByRowNames)) {
+		if (is.null(row.names(l[[1]]))) stop('Cbind[alignByRowNames]: No row names @ 1');
+		ref = if (is.logical(alignByRowNames) && alignByRowNames)
+			row.names(l[[1]]) else
+			alignByRowNames;
+		l = pairslapply(l, seq_along(l), function(e, i) {
+			if (is.null(row.names(e))) stop('Cbind[alignByRowNames]: No row names @ %{i}d');
+			e[order_align(ref, row.names(e)), , drop = F]
+		});
+	}
+	if (length(l) == 1)
+		# <p> special case vector
+		t_(l[[1]]) else
+		# <p> standard invocation
+		do.call(cbind, c(l, list(deparse.level = deparse.level)))
 }
 Rbind = function(..., stringsAsFactors = FALSE) {
 	l = list(...);
@@ -1623,6 +1715,8 @@ subsetTop = function(obj, sel, N = 1) {
 
 # transpose to create column vector for vector
 t_ = function(m)(if (is.vector(m)) t(t(m)) else t(m))
+# double transpose aka transpose to row -> vector to 1 x N matrix, otherwise identity
+t2r = function(m)t(t_(m))
 
 # convert strings to data frame names
 #	<i> create a data frame and extract names
@@ -1735,11 +1829,18 @@ vector.embed = function(v, idcs, e, idcsResult = T) {
 	r
 }
 # set values at idcs
-vector.assign = function(v, idcs, e, na.rm = 0) {
+vector.assign = function(v, idcs, e, na.rm = 0, N) {
+	if (!missing(N)) v = rep(v, N);
 	v[idcs] = e;
 	if (!is.na(na.rm)) v[is.na(v)] = na.rm;
 	v
 }
+# names based assignment
+Vector.assign = function(v, e, na.rm = NA) {
+	idcs = which.indeces(names(e), names(v));
+	vector.assign(v, idcs, e, na.rm = na.rm)
+}
+
 matrix.assign = function(m, idcs, e, byrow = T) {
 	if (length(dim(idcs)) > 1) {
 		m[as.matrix(idcs)] = e
@@ -1900,11 +2001,17 @@ table.n.freq = function(...) {
 	r = t0 / sum(t0);
 	r
 }
-Table = function(v, min, max, ...) {
-	if (missing(min) && missing(max)) return(table(v, ...));
-	if (missing(min)) min = min(v);
-	if (missing(max)) max = max(v);
-	table.n(v, n = max, min = min)
+Table = function(v, min, max, ..., cats) {
+	if (missing(min) && missing(max) && missing(cats)) return(table(v, ...));
+	if (!missing(cats)) {
+		d = Df_(lapply(v, Avu));
+		catsV = Df_(merge.multi.list(cats));
+		return(table(rbind(d, catsV)) - 1);
+	} else {
+		if (missing(min)) min = min(v);
+		if (missing(max)) max = max(v);
+		return(table.n(v, n = max, min = min));
+	}
 }
 
 #
@@ -2081,6 +2188,21 @@ Dfselect = function(data, l, na.rm = nif) {
 	r = data[na.rm(sel), ];
 	r
 }
+DfSearch = function(dfSearch, dfSearched,
+	colNamesReset = 'col', colNameIdx = '.dfSearchIdx', returnIdcs = F) {
+
+	nms = if (notE(colNamesReset)) {
+		nms = paste(colNamesReset, 1:ncol(dfSearched), sep = '');
+		names(dfSearch) = names(dfSearched) = nms;
+	} else names(dfSearched);
+	dfm = merge(
+		Df(1:nrow(dfSearched), dfSearched, names = colNameIdx),
+		Df(1:nrow(dfSearch), dfSearch, names = colNameIdx), by = nms);
+	if (returnIdcs)
+		return(dfm[, paste0(colNameIdx, c('.x', '.y')), drop = F]) else
+		return(dfm[[paste0(colNameIdx, '.x')]]);
+}
+
 DfDiff = function(d1, d2) {
 	dC = rbind(d2, d1);
 	row.names(dC) = NULL;
@@ -2090,7 +2212,10 @@ DfDiff = function(d1, d2) {
 	r
 }
 
-
+DfNames2std = function(d, nmsFormula, nmsStandard) {
+	d1 = Df_(d, headerMap = listKeyValue(all.vars(nmsFormula), nmsStandard));
+	d1
+}
 
 List_ = .List = function(l, min_ = NULL, sel_ = NULL,
 	rm.null = F, names_ = NULL, null2na = F, simplify_ = F, rm.na = F) {
@@ -3390,7 +3515,18 @@ minimax = function(v, min = -Inf, max = Inf) {
 #	<p> recycling
 #
 
-recycle = function(...)lapply(apply(cbind(...), 2, as.list), unlist)
+# fixed as of 10.8.2018: different types not correctly handles <f>
+Recycle = function(l) {
+	# determine recyling pattern
+	# old version would not preserve type
+	# Recycle = function(l)lapply(apply(do.call(cbind, l), 2, as.list), unlist)
+	lTmp = lapply(l, function(e)1:length(e));
+	rTmp = 	lapply(apply(do.call(cbind, lTmp), 2, as.list), unlist)
+	# extract values per component
+	r = lapply(seq_along(l), function(i)l[[i]][rTmp[[i]]]);
+	return(setNames(r, names(l)));
+}
+recycle = function(...)Recycle(list(...));
 recycleTo = function(..., to, simplify = T) {
 	r = recycle(to, ...)[-1];
 	if (simplify && length(r) == 1) r[[1]] else r

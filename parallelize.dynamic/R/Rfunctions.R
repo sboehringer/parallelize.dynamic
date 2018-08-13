@@ -114,3 +114,91 @@ Benchmark = function(expr, N__ = 1, verbose = T, returnTiming = F, Nabbr = 20, l
 	r = if (returnTiming) timing else r0;
 	r
 }
+
+#
+#	<p> optimization
+#
+
+# Ngrid should be uneven
+# not used at the moment
+gridFactor = function(Ngrid = 5, Step = .5, Factor = 1.5) {
+	genF = function(center, min, max) {
+		gridMarginal = lapply(center, function(p) {
+			gridRaw = (Step * Factor ^ (0: (Ngrid - 1)));
+			c(p - gridRaw, p, p + gridRaw)
+		});
+		grid = as.matrix(Rbind(merge.multi.list(gridMarginal)));
+		return(grid);
+	};
+	genF
+}
+
+gridBounding = function(Ngrid = 5) {
+	genF = function(center, min, max) {
+		gridMarginal = lapply(seq_along(min), function(i) {
+			seq(min[i], max[i], length.out = Ngrid)
+		});
+		grid = as.matrix(Rbind(merge.multi.list(gridMarginal)));
+		return(grid);
+	};
+	genF
+}
+
+searchContourGridRaw = function(f, grid, v, ..., contour = 0.05, gridGen, eps = 1e-3, lower = T) {
+	# assume regular grid
+	Ndim = ncol(grid);
+	pts = apply(grid, 2, function(v)sort(unique(v)));
+	Ns = apply(pts, 2, function(pts)pop(seq_along(pts)));
+	# list of canonical points of sub-hypercubes
+	cubes = as.matrix(Rbind(merge.multi.list(Df_(Ns))));
+	# calculate offsets to get all vertices of hypercube, coords per column
+	hyper = t2r(sapply(1:(2^Ndim) - 1, ord2bin, digits = Ndim));
+	# iterate hypercubes to decide value, nd defines canonical vertex of hypercube
+	sel = apply(cubes, 1, function(nd) {
+		NdsCube = t(nd + hyper);
+		#print(NdsCube - (nd + t_(hyper)));
+		# search funcion values on vertices of hypercube
+		#coords = cbind(pts[NdsCube[, 1], 1], pts[NdsCube[, 2], 2]);
+		coords = sapply(1:ncol(NdsCube), function(i)pts[NdsCube[, i], i]);
+		idcs = DfSearch(Df_(coords), Df_(grid));
+		vs = v[idcs];
+		if (any(vs <= contour) & any(vs >= contour)) { # tb persued
+			mn = apply(coords, 2, min);
+			mx = apply(coords, 2, max);
+			center = (mn + mx) / 2;
+			searchContourGrid(f, gridGen(center, mn, mx), ...,
+				contour = contour, gridGen = gridGen, eps = eps, lower = lower);
+		} else list()
+	});
+	return(unlist.n(sel, 1));
+}
+
+searchContourGrid = function(f, grid, ..., contour = 0.05, gridGen, eps = 1e-3, lower = T) {
+	# compute values of function on grid vertices
+	v = apply(grid, 1, f, ...);
+	# determine recursion end
+	mn = apply(grid, 2, min);
+	mx = apply(grid, 2, max);
+	# found contour elevation to desired accuracy
+	#print(max(mx - mn));
+	if (max(mx - mn) < eps) {
+		i = if (lower) which.min(v) else which.max(v);
+		return(list(grid[i, ]));
+	}
+	# continue searching
+	r = searchContourGridRaw(f, grid, v, ..., contour = contour, gridGen = gridGen, eps = eps, lower = lower);
+	return(r);
+}
+
+searchContourGridList = function(f, gridList, ..., contour = 0.05, gridGen, eps = 1e-2, lower = T) {
+	gL = lapply(gridList, searchContourGrid, ..., f = f, contour = contour, gridGen = gridGen);
+	return(unlist.n(gL, 1));
+}
+
+
+searchContour = function(f, start, ..., contour = 0.05, delta = 3,
+	gridGen = gridBounding(Ngrid = 3), eps = 1e-2, lower = T) {
+	grid = gridGen(start, start - delta, start + delta);
+	r = searchContourGrid(f, grid, ..., contour = contour, gridGen = gridGen, eps = eps);
+	return(do.call(rbind, r));
+}
