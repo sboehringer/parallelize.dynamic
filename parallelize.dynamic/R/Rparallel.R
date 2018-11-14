@@ -871,10 +871,13 @@ Lapply_initialze_probing = function() {
 #
 #	<p> configuration
 #
-Lapply_env = function(envir = parent.frame())
-	if (exists('parallelize_env', envir))
-		get('parallelize_env', envir = envir) else
-		stop('no parallelize_env environment')
+Lapply_env = function(envir = parent.frame()) {
+#	if (!exists('parallelize_env', envir)) stop('no parallelize_env environment');
+#	return(get('parallelize_env', envir = envir))
+	if (!exists('parallelize_env')) stop('no parallelize_env environment');
+	return(get('parallelize_env'))
+}
+		
 
 # fallback required for remote processes without an environemnt
 Lapply_getConfig = function() {
