@@ -163,7 +163,8 @@ freezeCallOGS = function(self, ..f, ...,
 	path = freezeCall(freeze_f = ..f, ...,
 		freeze_file = freeze_file, freeze_save_output = T, freeze_control = freeze_control,
 		freeze_envir = NULL, freeze_env_eval = freeze_env_eval,
-		freeze_objects = 'parallelize_env', thaw_transformation = thaw_transformation);
+		#freeze_objects = 'parallelize_env', thaw_transformation = thaw_transformation);
+		freeze_objects = NULL, thaw_transformation = thaw_transformation);
 	wrap = frozenCallWrap(path, freeze_control);
 	wait = if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
 	qsubOptions = Sprintf('%{options}s --outputDir %{qsubPath}Q %{wait}s %{qsubOptionsAdd}s',
@@ -217,7 +218,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 	freezer = Lapply_executionState__$currentFreezer();
 
 	# <p> setup
-	c = Lapply_getConfig();
+	lcfg = Lapply_getConfig();
 	remoteConfig = lapply_dispatch_config(self);
 	freeze_control = list(
 		sourceFiles = remoteConfig$sourceFiles,
@@ -226,9 +227,10 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 		logLevel = Log.level()
 	);
 	# <p> split up calls into 'parallel_count' no of slots
-	idcs = splitListIndcs(freezer$Ncalls(), c$parallel_count);
+	idcs = splitListIndcs(freezer$Ncalls(), lcfg$parallel_count);
 
-	ogs_frozen_call__ = function(listcalls) {
+	ogs_frozen_call__ = function(listcalls, Lapply_config) {
+		Lapply_setConfig(Lapply_config);
 		parallelize_setEnable(F);
 		Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 		lapply(listcalls, function(lc) {
@@ -251,7 +253,7 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 		});
 		freeze_control_chunk = c(freeze_control, list(rng = RNGuniqueSeed(c(self@signature, job_index__))));
 		Log(sprintf("Unique seed for job %d: %d", job_index__, freeze_control_chunk$rng$seed), 5);
-		r = freezeCallOGS(self, ogs_frozen_call__, listcalls = mycalls,
+		r = freezeCallOGS(self, ogs_frozen_call__, listcalls = mycalls, Lapply_config = lcfg,
 			freeze_file = path, freeze_control = freeze_control_chunk,
 			cwd = getwd(),
 			qsubMemory = remoteConfig$qsubParallelMemory,
