@@ -94,6 +94,34 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 }
 .OGSremoteWorkingDir = function(self).OGSremoteFile(self, tag = '', ext = '')
 
+# dictionary element can be list with meta-information,
+#	list element 'name' will be what is returned by parallelize_lookup
+#	list element 'isPrefix' inidcates that 'name' describes a group of files
+OGSremoteCopyDictionary = function(config, self) {
+	remoteDir = .OGSremoteWorkingDir(self);
+	b = config$backend;
+	d = config$dictionary;
+	n = names(d$native)
+	dictBackend = nlapply(n, function(n) {
+		if (is.null(d[[b]][[n]])) {	# copy object by assuming file
+			e = d$native[[n]];
+			files = if (is.list(e)) {
+				if (e$isPrefix) {
+					sp = splitPath(e$name);
+					# <A> quoting
+					list.files(sp$dir, Sprintf("^%{prefix}s", prefix = sp$file))
+				} else e$name;
+			} else e;
+			sp = splitPath(if (is.list(e)) e$name else e);
+			File.copy(paste(sp$dir, files, sep = '/'), remoteDir, agent = 'rsync -avP', ignore.shell = F);
+			with(splitPath(remoteDir, ssh = T), Sprintf('%{path}s/%{file}s', file = sp$file))
+		} else d[[b]][[n]];
+		
+	});
+	config$dictionary[[b]] = dictBackend;
+	return(config);
+}
+
 # patch source file pathes to local versions: assumed to be copied to working directory on server
 setMethod('lapply_dispatch_config', 'ParallelizeBackendOGSremote', function(self) {
 	cfg = callNextMethod(self);
@@ -133,6 +161,12 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	copyFiles =  unique(union(copyFiles, sourceFiles));
 	Log(sprintf('Copying files: %s', join(copyFiles, ', ')), 5);
 	File.copy(copyFiles, remoteDir, ignore.shell = ignore.shell, recursive = T, symbolicLinkIfLocal = T);
+	# <p> dictionary
+	if (Lapply_getConfig()$copyDictionary) {
+		c = Lapply_getConfig();
+		Log(sprintf('Replicating data dictionary: %s', join(names(c$dictionary$native))), 5);
+		Lapply_setConfig(OGSremoteCopyDictionary(c, self));
+	}
 	# clear jids
 	File.remove(.OGSremoteFile(self, 'jids'));
 	# <p> remote environment: environment variables
@@ -142,7 +176,11 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	parallelize_remote = function(call_, Lapply_config) {
 		# <!> hack to install config in namespace. otherwise the global object will be chosen
 		parallelize.dynamic:::Lapply_setConfig(Lapply_config);
-		parallelize_initialize(Lapply_config = Lapply_config,
+		parallelize.dynamic:::Lapply_setConfigValue(
+			activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
+		# < 14.11.2018
+		#parallelize_initialize(Lapply_config = Lapply_config,
+		parallelize_initialize(Lapply_config = parallelize.dynamic:::Lapply_getConfig(),
 			backend = Lapply_config$backend, copy_environments = Lapply_config$copy_environments);
 		r = parallelize_internal(call_, parallelize_wait = F);
 	};

@@ -897,11 +897,15 @@ Lapply_setConfigValue = function(...) {
 }
 # lookup a value from the dictionary
 #	values default to the 'native' dictionary
+# dictionary element can be a list with meta-information,
+#	list element 'name' will be what is returned by parallelize_lookup
+#	list element 'isPrefix' inidcates that 'name' describes a group of files
 parallelize_lookup = Lapply_lookup = function(name) {
 	c = Lapply_getConfig();
 	d = c$dictionary;
 	dictName = if (is.null(d[[c$activeDictionary]])) 'native' else c$activeDictionary;
 	value = if (is.null(d[[dictName]][[name]])) d$native[[name]] else d[[dictName]][[name]];
+	if (is.list(value)) value = value$name;
 	value
 }
 Lapply_storeSeeds = function() {
@@ -1005,7 +1009,9 @@ Lapply_config_default = list(
 	#	i.e. delayed data objects are freshly interpreted per thread (i.e. frozen/thawed)
 	copy_environments = TRUE,
 	# appended to names prior to calculating md5 -> allow to distinguish identical calls
-	salt = ''
+	salt = '',
+	# replicate entries of the data dictionary automatically, needs to be implemented by backend
+	copyDictionary = T
 );
 Lapply_backendConfig_default = list(
 	doNotReschedule = F, doSaveResult = F

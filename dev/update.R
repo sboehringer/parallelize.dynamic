@@ -27,3 +27,10 @@ if (1) {
 if (0) {
 	install_github('sboehringer/parallelize.dynamic', subdir = 'parallelize.dynamic', force = TRUE);
 }
+
+#
+#	<p> shell based update cycle
+#
+# dev/pullin.sh
+# Rq "require('devtools');install_github('sboehringer/parallelize.dynamic', subdir = 'parallelize.dynamic');"
+#
