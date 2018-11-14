@@ -83,6 +83,12 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 
 	Lapply_remote_config$backends[[Lapply_remote_config$backend]] = 
 		Lapply_remote_config$backendConfig = backendConfig;
+
+	# equivalent code to prepare remote config
+	#parallelize.dynamic:::Lapply_setConfigValue(
+	#	activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
+	Lapply_remote_config$activeDictionary = Lapply_remote_config$backend;
+
 	Lapply_remote_config
 }
 .OGSremoteFile = function(self, tag = '', ext = '.RData') {
@@ -176,11 +182,7 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 	parallelize_remote = function(call_, Lapply_config) {
 		# <!> hack to install config in namespace. otherwise the global object will be chosen
 		parallelize.dynamic:::Lapply_setConfig(Lapply_config);
-		parallelize.dynamic:::Lapply_setConfigValue(
-			activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
-		# < 14.11.2018
-		#parallelize_initialize(Lapply_config = Lapply_config,
-		parallelize_initialize(Lapply_config = parallelize.dynamic:::Lapply_getConfig(),
+		parallelize_initialize(Lapply_config = Lapply_config,
 			backend = Lapply_config$backend, copy_environments = Lapply_config$copy_environments);
 		r = parallelize_internal(call_, parallelize_wait = F);
 	};
