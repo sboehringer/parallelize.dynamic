@@ -361,10 +361,17 @@ MatchRegex = function(re, str, mode = 'return') {
 	r
 }
 # handle attributes
+# As.list assumes attributes and vector elements to be paired
+#	corresponding values/attributes will be put into the list
 As.list = function(v) {
 	as = Recycle(attributes(v));
 	l = lapply(seq_along(v), function(i) {
-		Attr(v[i], list.kp(as, Sprintf('[[%{i}d]]')))
+		# does not preserve matrices
+		#attrs = list.kp(as, Sprintf('[[%{i}d]]'));
+		# should become <i>
+		#attrs = list.kp(as, Sprintf('[[%{i}d]]', accessor = function(e)accessIdx(e, i)));
+		attrs = lapply(seq_along(as), function(j)accessIdx(as[[j]], i));
+		Attr(v[i], SetNames(attrs, names(as)))
 	});
 	l
 }
@@ -375,6 +382,11 @@ As.list = function(v) {
 # by default, return matches
 RegexprSingle = function(re, s, captures = F, global = T, simplify = T, concatMatches = T, drop = T) {
 	matches = if (global) gregexpr(re, s, perl = T) else As.list(regexpr(re, s, perl = T));
+	#print(gregexpr(re, s, perl = T));
+	#print(regexpr(re, s, perl = T));
+	#print(matches);
+
+	#matches = if (global) gregexpr(re, s, perl = T) else list(regexpr(re, s, perl = T));
 	r = pairslapply(matches, s, function(m, s) {	# iterate strings
 		if (captures) {
 			r = matchRegexCapture(m, s);
@@ -582,7 +594,7 @@ Sprintfl = function(fmt, values, sprintf_cartesian = FALSE, envir = parent.frame
 	# <p> handle %D: current day
 	keys[typesRaw == 'D'] = '..Sprintf.date..';
 	dateValue = if (sum(typesRaw == 'D'))
-		list(`..Sprintf.date..` = format(Sys.time(), '%Y%d%m')) else
+		list(`..Sprintf.date..` = format(Sys.time(), '%Y%m%d')) else
 		list();
 	allValues = c(allValues, dateValue, List_(interpolation, rm.null = T));
 
@@ -755,7 +767,7 @@ expandBlocks = function(blks) {
 	apply(matrix(blks, ncol = 2, byrow = T), 1, function(r) { r[1]:r[2] } )
 }
 
-
+# split 1:M into N partitions, return row-wise range
 splitListIndcs = function(M, N = 1, .compact = F, .truncate = T) {
 	if (.truncate & M < N) N = M;
 	if (.compact) {
@@ -797,19 +809,26 @@ index2listPosition = function(l) {
 # splitting based on fractions
 # voting percentages to seats
 #	simple algorithm based on size of residuals
-splitSeatsForFractions = function(Nseats, fractions) {
+# tiePreferHigh: for tied residuals add/subtract seats to high indeces (T) or low ones (F)
+splitSeatsForFractions = function(Nseats, fractions = vn(rep(1, Nfractions)), Nfractions,
+	tiePreferHigh = T) {
 	# number of parties
 	Nparties = length(fractions);
 	# fractional seats
 	Nseats0 = fractions * Nseats;
 	# garuantee one seat, otherwise round to nearest
 	Nseats1 = ifelse (Nseats0 < 1, 1, round(Nseats0));
-	# mismatch
+	# individual mismatch
+	Nresid = Nseats0 - Nseats1;
+	# mismatch total
 	diff = sum(Nseats1) - Nseats;
 	# redistribute deficit/overshoot
 	if (diff != 0) {
-		Nresid = sapply(Nseats0 - Nseats1, function(i)ifelse(i < 0, 1, i));
-		subtr = order(Nresid, decreasing = diff < 0)[1:abs(diff)];
+		Nresid1 = ifelse(Nresid < 0, 1, Nresid);	# too few vs too many, too few -> maximal value of 1
+		# take seats from whom? We need abs(diff) seats.
+		#subtr = order(Nresid1, decreasing = diff < 0)[1:abs(diff)];
+		prio = if (tiePreferHigh) 1:Nparties else rev(1:Nparties);
+		subtr = Order(Df(Nresid1, prio))[1:abs(diff)];
 		# assume one round of correction is always sufficient <!>
 		Nseats1[subtr] = Nseats1[subtr] - sign(diff);
 	}
@@ -1082,7 +1101,8 @@ list.kprw = function(l, keys, unlist.pats, template, null2na, carryNames, test) 
 		index = fetchRegexpr("\\A\\[\\[(\\d+)\\]\\]\\Z", key, captures = T);
 		if (length(index) > 0) key = as.integer(index[[1]]);
 		if (is.list(l)) {
-			r = if (is.null(l[[key]])) {
+			# <N> logical(0) seen as NULL by second condition
+			r = if (is.null(l[[key]]) || length(l[[key]]) == 0) {
 					if (null2na) { NA } else firstDef(template, NULL)
 				} else l[[key]];
 			if (length(keys) > 1)
@@ -1271,6 +1291,14 @@ pairslapply = function(l1, l2, f, ...) {
 	names(r) = names(l1);
 	r
 }
+
+filterList = function(o, f, ...) {
+	l = sapply(o, f, ...);
+	if (length(l) == 0) l = NULL;	#list corner case
+	r = o[l];
+	return(r);
+}
+
 
 # <i> copy MARGIN handling from apply (aperm)
 lapplyDir = function(m, MARGIN, f_, ..., drop = F) {
@@ -1793,6 +1821,14 @@ matrix.intercalate = function(..., direction = 1, listOfMatrices = FALSE) {
 	r
 }
 
+matrixSearch = function(mSearch, mSearched, cols = 1:ncol(mSearch)) {
+	df1 = Df_(mSearch, names = paste0('c', cols));
+	df2 = Df_(mSearched[, cols, drop = F], names = paste0('c', cols));
+	return(DfSearch(df1, df2, returnIdcs = T));
+}
+
+
+
 data.frame.expandWeigths = function(data, weights = 'weights') {
 	w = data[[weights]];
 	weightsCol = which(names(data) == weights);
@@ -1864,7 +1900,9 @@ vectorIdcs = function(v, f, ..., not = F) {
 # produce indeces for indeces positioned into blocks of blocksize of which count units exists
 # example: expand.block(2, 10, 1:2) == c(1, 2, 11, 12)
 expand.block = function(count, blocksize, indeces) {
-	as.vector(apply(to.col(1:count), 1,
+	blks = Seq(1,count);
+	if (is.null(blks)) return(NULL);
+	as.vector(apply(to.col(blks), 1,
 		function(i){ (i - 1) * blocksize + t(to.col(indeces)) }
 	));
 }
@@ -2394,7 +2432,7 @@ data.frame.union = function(l) {
 # setLevels: restrict to these levels, else set to NA
 # setLevelsTo: set names of levels to argument, set excess levels to NA
 recodeLevels = function(f, map = NULL, others2na = TRUE, levels = NULL, setLevels = NULL,
-	setLevelsTo = NULL) {
+	setLevelsTo = NULL, sortLevelsByMap = T) {
 	r = f;
 	if (!is.null(map)) {
 		# map others to NA
@@ -2403,9 +2441,15 @@ recodeLevels = function(f, map = NULL, others2na = TRUE, levels = NULL, setLevel
 			map = c(map, listKeyValue(nonmentioned, rep(NA, length(nonmentioned))));
 		}
 		v = vector.replace(as.character(f), map);
-		if (is.integer(f)) v = as.integer(v);
-		if (is.factor(f)) v = factor(v, levels = unique(as.character(map)));
-		r = v;
+		# test for integer before and after
+		# special case eliminated as of 14.9.2018
+		#if (is.integer(f)) v = as.integer(v);
+		#if (is.factor(f)) v = factor(v, levels = unique(as.character(map)));
+		#v = factor(v, levels = unique(as.character(map)));
+		r = if (sortLevelsByMap)
+			factor(v, levels = union(unique(map), setdiff(unique(v), unique(map)))) else
+			as.factor(v);
+		# <!> r = v, r <- v do not work here, remain local
 	}
 	if (!is.null(levels) || !is.null(setLevels)) {
 		# <p> preparation
@@ -3205,6 +3249,8 @@ deduplicateLabels = function(v, labels = v[duplicated(v)], sep = '-', firstUntou
 	v
 }
 
+Trimws = function(s)join(sub('^\t', '', splitString("\n", s)), '\n');
+
 #
 #	<p> factor transformations for data frames
 #
@@ -3515,15 +3561,20 @@ minimax = function(v, min = -Inf, max = Inf) {
 #	<p> recycling
 #
 
+accessIdx = function(e, i, byRow = T) {
+	if (class(e) != 'matrix' || is.na(byRow)) e[i] else
+		(if (byRow) e[i, , drop = F] else e[, i, drop = F])
+}
+
 # fixed as of 10.8.2018: different types not correctly handles <f>
-Recycle = function(l) {
+Recycle = function(l, byRow = T) {
 	# determine recyling pattern
 	# old version would not preserve type
 	# Recycle = function(l)lapply(apply(do.call(cbind, l), 2, as.list), unlist)
 	lTmp = lapply(l, function(e)1:length(e));
 	rTmp = 	lapply(apply(do.call(cbind, lTmp), 2, as.list), unlist)
 	# extract values per component
-	r = lapply(seq_along(l), function(i)l[[i]][rTmp[[i]]]);
+	r = lapply(seq_along(l), function(i)accessIdx(l[[i]], rTmp[[i]], byRow = byRow));
 	return(setNames(r, names(l)));
 }
 recycle = function(...)Recycle(list(...));

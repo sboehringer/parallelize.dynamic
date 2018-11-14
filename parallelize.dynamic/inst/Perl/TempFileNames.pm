@@ -166,7 +166,10 @@ sub firstFile { my ($filePath, $dirs, $extensions, $c) = @_;
 	my $p = splitPathDict($filePath);
 	# <!> changed [23.8.2003]: $p->{base} -> $p->{basePath}
 	my $base = $c->{useBase}? $p->{base}: $p->{basePath};
-	foreach $dir ($p->{directory}, @$dirs) {
+	# used to include $p->{directory} but undefined (dir would be correct)
+	# commented out 27.9.2018
+	#foreach $dir ($p->{directory}, @$dirs) {
+	foreach $dir (@$dirs) {
 		foreach $ext ($p->{extension}, @$extensions) {
 			my $file = firstDef($dir, '.'). "/$base". ($ext ne ''? ".$ext": '');
 			$file =~ s{^~}{$ENV{HOME}}o if (!$c->{dontInterpolateHome});
@@ -215,7 +218,8 @@ sub readConfigFile { my ($fileName, $c, @paths) = @_;
 		die "Config file $fileName not found" if (!defined($c->{default}));
 		$plist = $c->{default};
 	} else {
-		$plist = $c->{returnPath}? propertyFromString($plistFile->{file}): propertyFromString($plistFile);
+		my $plistFct = $c->{noExtendedPlist}? \&propertyFromString: \&propertyFromStringExt;
+		$plist = $c->{returnPath}? $plistFct->($plistFile->{file}): $plistFct->($plistFile);
 	}
 	return $c->{returnPath}
 	? { path => $plistFile->{path}, propertyList => $plist } : $plist;
@@ -330,9 +334,9 @@ sub writeFile { my ($path, $buffer, $doMakePath, $fileMode, $dirMode, $host) = @
 		($doMakePath, $fileMode, $dirMode, $host, $group) = @$c{
 		('doMakePath','fileMode','dirMode','host','group')};
 	}
-	if ($c->{encodeFrom} ne 'raw') {
+	if (defined($c->{encodeFrom}) && $c->{encodeFrom} ne 'raw') {
 		my $enc = firstDef($c->{encodeFrom}, 'utf8');
-		eval("use Encode;");
+		load('Encode', 'encode'); #eval("use Encode;");
 		$buffer = encode($enc, $buffer);
 	}
 	if (defined($host)) {

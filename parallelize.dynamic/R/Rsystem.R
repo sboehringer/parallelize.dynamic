@@ -157,13 +157,14 @@ File.copy_raw = function(from, to, ..., recursive = F, agent = 'scp', logLevel =
 		} else file.copy(spF$path, spT$path, recursive = recursive, ...);
 	} else {
 		# <A> assume 'to' to be atomic
-		System(sprintf('%s %s %s %s %s',
+		cmd = sprintf('%s %s %s %s %s',
 			agent,
 			ifelse(recursive, '-r', ''),
 			paste(sapply(from, qs), collapse = ' '),
 			qs(to),
 			ifelse(ignore.shell, '>/dev/null', '')
-		), logLevel);
+		);
+		System(cmd, logLevel);
 	}
 	r
 }
@@ -488,6 +489,12 @@ System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	if (!return.output && !return.cmd && is.null(pattern)) r = r$error;
 	r
 }
+SystemS = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
+	doLog = TRUE, printOnly = NULL, return.output = F, return.cmd = F, ..., envir = parent.frame()) {
+
+	cmd = Sprintf(cmd, ..., envir = envir);
+	System(cmd, logLevel, doLog, printOnly, return.output, return.cmd = return.cmd);
+}
 
 # wait on job submitted by system
 .System.wait.patterns = list(
@@ -519,7 +526,7 @@ ipAddress = function(interface = "eth0") {
 
 # Capture.ouput(..., type = c('input', 'output', 'merged', 'all', 'none', 'discard'), split = c('input', 'output', 'all', 'none'), append = c('input', 'output', 'all', 'none'), return = T)
 silence = function(expr, verbose = F) {
-	if (verbose) eval(expr) else {
+	if (verbose || Sys.info()['sysname'] == 'Windows') eval(expr) else {
 		sink('/dev/null', type = 'output');
 		sink(stdout(), type = 'message');
 		r = eval(expr);
@@ -785,11 +792,12 @@ Source_url = function(url, ...) {
 
 # <!> local = T does not work
 Source = function(file, ...,
-	locations = c('', '.', sprintf('%s/src/Rscripts', Sys.getenv('HOME')))) {
+	locations = c('', '.', sprintf('%s/src/Rscripts', Sys.getenv('HOME'))),
+	envir = NULL) {
 	sapply(file, function(file) {
 		if (isURL(file)) Source_url(file, ...) else {
 		file0 = file.locate(file, prefixes = locations);
-			source(file = file0, ...)
+			if (notE(envir)) sys.source(file = file0, envir = envir, ...) else source(file = file0, ...)
 		}
 	})
 }
@@ -1405,21 +1413,20 @@ activateModule = function(path) {
 #
 #	<p> sqlite
 #
-
 sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, unique = list()) {
 	# <p> types
 	types = merge.lists(listKeyValue(columns, rep('text', length(columns))), types);
 	# <p> cols
-	cols = join(sep = ', ', sapply(columns, function(e)sprintf('%s %s', e, types[e])));
+	cols = join(sep = ', ', sapply(columns, function(e)sprintf('%s %s', qs(e, force = T), types[e])));
 	# <p> unique constraints
 	#UNIQUE (col_name1, col_name2) ON CONFLICT REPLACE)
 	unique = circumfix(join(sapply(unique, function(u) {
-		Sprintf('UNIQUE (%{cols}s) ON CONFLICT FAIL', cols = join(u, ', '))
+		Sprintf('UNIQUE (%{cols}s) ON CONFLICT FAIL', cols = join(qs(u, force = T), ', '))
 	}), ', '), pre = ' , ');
 	createDbSql = join(sep = "\n", c(
 		Sprintf('CREATE TABLE data (%{cols}s%{unique}s);'),
 		if (is.null(index)) c() else sapply(1:length(index), function(i)
-			sprintf('CREATE INDEX index_%d ON data (%s);', i, join(index[[i]], sep = ', '))),
+			sprintf('CREATE INDEX index_%d ON data (%s);', i, join(qs(index[[i]], force = T), sep = ', '))),
 		'.quit', ''
 	));
 	if (!is.null(createAt)) System(sprintf('echo \'%s\' | sqlite3 %s', createDbSql, qs(createAt)), 1);
@@ -1430,6 +1437,7 @@ sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, 
 # @par index: list of columns to index
 # @par type: sqlite types: integer, real, text, blob, not specified assumes text
 
+sqlTypeMap = list(integer = 'integer', numeric = 'real', character = 'text');
 csv2sqlitSepMap = readTableSepMap;
 sepMap = list(T = '\\t', S = ' ', C = ',', `;` = ';', `S+` = '');
 sepMapCut = list(T = '\\t', S = '" "', C = ',', `;` = ';', `S+` = '');
@@ -1442,12 +1450,12 @@ csv2sqlite = function(path, output = tempfile(),
 	if (newDb) file.remove(output);
 
 	# <!> cave: does not heed skip
-	if (!inputHeader && is.null(columnsNames)) {
+	if (inputHeader && is.null(columnsNames)) {
 		columnsNames = read.table(path, header = F, nrows = 1, sep = csv2sqlitSepMap[[inputSep]]);
 	}
 	# <p> select columns
 	cut = if (!is.null(columnsSelect)) {
-		skipColumnsIds = which.indeces(columnsSelect, columnsNames);
+		skipColumnsIds = which.indeces(columnsSelect, avu(columnsNames));
 		sprintf('| cut %s -f %s ',
 			if (inputSep == 'T') '' else sprintf('-d %s', sepMapCut[[inputSep]]),
 			join(skipColumnsIds, ',')
@@ -1459,7 +1467,8 @@ csv2sqlite = function(path, output = tempfile(),
 
 	# <p> import data
 	skipCommand = if (is.null(inputSkip)) '' else sprintf('| tail -n +%d ', inputSkip + 1);
-	reader = if (splitPath(path)$ext == 'gz') 'zcat' else 'cat';
+	sp = splitPath(path)$ext;
+	reader = if (notE(sp$ext) && sp$ext == 'gz') 'zcat' else 'cat';
 	importSql = writeFile(tempfile(), join(sep = "\n", c(
 		sprintf(".separator %s\n", sepMap[[inputSep]]),
 		sprintf(".import \"/dev/stdin\" data")
@@ -1532,6 +1541,8 @@ sqliteBuildQuery = function(table, query, distinct = TRUE) {
 	query = Sprintf('SELECT %{isDistinct}s * FROM %{table}Q WHERE %{condition}s');
 	query
 }
+
+# query: list(chr = info$chr, mapPhy = list('> Int', pos - range), mapPhy = list('< Int', pos + range));
 
 sqliteQuery = function(db, query, table = NULL) {
 	if (is.null(table)) table = dbListTables(db)[1];

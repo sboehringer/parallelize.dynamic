@@ -2,6 +2,8 @@
 #	Rfunctions.R
 #Tue 14 Aug 2007 01:39:42 PM CEST 
 
+#Require('magrittr');
+
 #
 #	<§> abstract data functions
 #
@@ -144,7 +146,9 @@ gridBounding = function(Ngrid = 5) {
 	genF
 }
 
-searchContourGridRaw = function(f, grid, v, ..., contour = 0.05, gridGen, eps = 1e-3, lower = T) {
+searchContourGridRaw = function(f, grid, v, ...,
+	contour = 0.05, gridGen, eps = 1e-3, lower = T, verbose = F) {
+	if (verbose) print(cbind(grid, v));
 	# assume regular grid
 	Ndim = ncol(grid);
 	pts = apply(grid, 2, function(v)sort(unique(v)));
@@ -167,15 +171,31 @@ searchContourGridRaw = function(f, grid, v, ..., contour = 0.05, gridGen, eps = 
 			mx = apply(coords, 2, max);
 			center = (mn + mx) / 2;
 			searchContourGrid(f, gridGen(center, mn, mx), ...,
-				contour = contour, gridGen = gridGen, eps = eps, lower = lower);
+				contour = contour, gridGen = gridGen, eps = eps, lower = lower,
+				gridCache = cbind(grid, v));
 		} else list()
+		# } else list(matrix(rep(NA, ncol(grid), ncol = ncol(grid))))
 	});
 	return(unlist.n(sel, 1));
 }
 
-searchContourGrid = function(f, grid, ..., contour = 0.05, gridGen, eps = 1e-3, lower = T) {
+# <!><i> multivariate functions
+applyCached = function(grid, f, gridCache, ...) {
+	# <p> no cache
+	if (missing(gridCache) || !notE(gridCache)) return(apply(grid, 1, f, ...));
+	s = matrixSearch(grid, gridCache);
+	idcs = setdiff(1:nrow(grid), s[, 2]);
+	vI = apply(grid[idcs, , drop = F], 1, f, ...);
+	v = vector.assign(NA, c(idcs, s[, 2]), c(vI, gridCache[s[, 1], ncol(gridCache)]), N = nrow(grid));
+	return(v);
+}
+
+# gridCache: matrix/df with cbind(grid, v) from previous computations to avoid double evaluations
+searchContourGrid = function(f, grid, ..., contour = 0.05, gridGen, eps = 1e-3, lower = T, gridCache) {
 	# compute values of function on grid vertices
-	v = apply(grid, 1, f, ...);
+	#v = apply(grid, 1, f, ...);
+	v = applyCached(grid, f, gridCache, ...);
+	#print(cbind(grid, v));
 	# determine recursion end
 	mn = apply(grid, 2, min);
 	mx = apply(grid, 2, max);
@@ -186,7 +206,8 @@ searchContourGrid = function(f, grid, ..., contour = 0.05, gridGen, eps = 1e-3, 
 		return(list(grid[i, ]));
 	}
 	# continue searching
-	r = searchContourGridRaw(f, grid, v, ..., contour = contour, gridGen = gridGen, eps = eps, lower = lower);
+	r = searchContourGridRaw(f, grid, v, ...,
+		contour = contour, gridGen = gridGen, eps = eps, lower = lower);
 	return(r);
 }
 
@@ -201,4 +222,40 @@ searchContour = function(f, start, ..., contour = 0.05, delta = 3,
 	grid = gridGen(start, start - delta, start + delta);
 	r = searchContourGrid(f, grid, ..., contour = contour, gridGen = gridGen, eps = eps);
 	return(do.call(rbind, r));
+}
+
+#
+#	<p> optimization
+#
+
+searchOptimumGrid = function(f, grid, ..., delta, gridGen, eps = 1e-3, scale = 1, returnOpt = F) {
+	# compute values of function on grid vertices
+	#print(grid);
+	v = apply(grid, 1, f, ...) * scale;
+	# vertex with optimum
+	Iopt = which.max(v);
+	# determine recursion end
+	mn = apply(grid, 2, min);
+	mx = apply(grid, 2, max);
+	Ns = apply(grid, 2, function(v)length(unique(v)));
+	#Ns = apply(grid, 2, length %.% unique);	# ought to be
+	# magrittr
+	#Ns = apply(grid, 2, . %>% unique %>% length);
+	# found contour elevation to desired accuracy
+	#print(max(mx - mn));
+	if (max(mx - mn) < eps) {
+		return(if (returnOpt) list(par = grid[Iopt, ], value = v[Iopt]) else grid[Iopt, ]);
+	}
+	# continue searching
+	r = searchOptimum(f, grid[Iopt, ], ..., delta = delta / Ns, gridGen = gridGen, eps = eps, scale = scale,
+		returnOpt = returnOpt);
+	return(r);
+}
+
+searchOptimum = function(f, start, ..., delta = 3, gridGen = gridBounding(Ngrid = 7), eps = 1e-2, scale = 1,
+	returnOpt = F) {
+	grid = gridGen(start, start - delta, start + delta);
+	r = searchOptimumGrid(f, grid, ..., delta = delta, gridGen = gridGen, eps = eps, scale = scale,
+		returnOpt = returnOpt);
+	return(r);
 }
