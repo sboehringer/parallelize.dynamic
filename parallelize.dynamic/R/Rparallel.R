@@ -770,8 +770,9 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 	#	parallelize_setEnable(F) is called with
 	#	Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend)
 	# <i><A> should be factored out later to make this unnecessary
-	activeDictionary = 'native';
+	activeDictionary = firstDef(Lapply_config$activeDictionary, 'native');
 	# <p> final config
+	# <i> <A> whole merging should be a replaced by a deep merging step
 	Lapply_config = merge.lists(
 		Lapply_config_default,
 		Lapply_config,
