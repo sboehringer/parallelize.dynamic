@@ -230,10 +230,9 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 	idcs = splitListIndcs(freezer$Ncalls(), lcfg$parallel_count);
 
 	ogs_frozen_call__ = function(listcalls, Lapply_config) {
-		parallelize.dynamic:::Lapply_setConfig(Lapply_config);
+		Lapply_setConfig(Lapply_config);
 		parallelize_setEnable(F);
-		parallelize.dynamic:::Lapply_setConfigValue(
-			activeDictionary = parallelize.dynamic:::Lapply_getConfig()$backend);
+		Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 		lapply(listcalls, function(lc) {
 			lapply(lc$elements, function(e)
 				try(do.call(lc$fct, c(list(e), lc$arguments)))
