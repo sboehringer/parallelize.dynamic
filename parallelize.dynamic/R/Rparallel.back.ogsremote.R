@@ -69,7 +69,8 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 });
 
 # dispatchKeys: which keys to copy from dispatchConfig to remoteConfig
-.remoteConfigForOGSremote = function(self, stateDir = '.', dispatchKeys = 'sourceFiles') {
+.remoteConfigForOGSremote = function(self, stateDir = '.',
+	dispatchKeys = c('sourceFiles', 'libraries')) {
 	Lapply_remote_config = Lapply_getConfig();
 	backendConfig = merge.lists(
 		Lapply_remote_config$backendConfig,

@@ -120,7 +120,11 @@ setMethod('lapply_dispatch', 'ParallelizeBackend', function(self, l_parallelize,
 		f_parallelize = f_parallelize, l_parallelize = l_parallelize, args_parallelize = args);
 	NULL
 });
-setMethod('lapply_dispatch_config', 'ParallelizeBackend', function(self)self@config)
+# this returns an lapply config suitable for use in a parallelized environment
+# this method should patch source pathes/libraries as necessary
+# 7.1.2019: previously self@config was returned, this is the backendConfig which contains incomplete information
+#setMethod('lapply_dispatch_config', 'ParallelizeBackend', function(self)self@config)
+setMethod('lapply_dispatch_config', 'ParallelizeBackend', function(self)Lapply_getConfig())
 setMethod('lapply_dispatchFinalize', 'ParallelizeBackend', function(self) { 
 	Lapply_executionState__ = get('Lapply_executionState__', envir = parallelize_env);
 	freezer = Lapply_executionState__$currentFreezer();
