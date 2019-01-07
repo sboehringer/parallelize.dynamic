@@ -68,6 +68,7 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 	.Object
 });
 
+# <i> should be implemented as lapply_dispatch_config
 # dispatchKeys: which keys to copy from dispatchConfig to remoteConfig
 .remoteConfigForOGSremote = function(self, stateDir = '.',
 	dispatchKeys = c('sourceFiles', 'libraries')) {
@@ -88,7 +89,7 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 	# equivalent code to prepare remote config
 	#Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 	Lapply_remote_config$activeDictionary = Lapply_remote_config$backend;
-
+print(Lapply_remote_config)
 	Lapply_remote_config
 }
 .OGSremoteFile = function(self, tag = '', ext = '.RData') {

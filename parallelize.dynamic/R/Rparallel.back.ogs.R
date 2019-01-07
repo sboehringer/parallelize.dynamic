@@ -189,7 +189,7 @@ setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self,
 	remoteConfig = lapply_dispatch_config(self);
 	freeze_control = list(
 		sourceFiles = remoteConfig$sourceFiles,
-		libraries = unique(c('parallelize.dynamic', self@config$libraries)),
+		libraries = unique(c('parallelize.dynamic', remoteConfig$libraries)),
 		objects = parallelizationStateObjects,
 		logLevel = Log.level(),
 		rng = RNGuniqueSeed(self@signature)
