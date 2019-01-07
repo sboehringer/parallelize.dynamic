@@ -208,9 +208,9 @@ setMethod('initScheduling', 'ParallelizeBackendOGSremote', function(self, call_)
 		# System
 		patterns = c('cwd', 'qsub', 'ssh'),
 		cwd = sp$path, ssh_host = sp$userhost,
-		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = dispatchConfig$qsubRampUpMemory,
-		ssh_source_file = c(dispatchConfig$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=-'
-#		ssh_source_file = c(dispatchConfig$ssh_source_file, remoteProfile)
+		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory,
+		ssh_source_file = c(self@config$ssh_source_file, remoteProfile), qsubOptionsAdd = '--exports=-'
+#		ssh_source_file = c(self@config$ssh_source_file, remoteProfile)
 	);
 	# end with
 	});
