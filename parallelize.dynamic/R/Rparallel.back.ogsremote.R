@@ -89,7 +89,7 @@ setMethod('initialize', 'ParallelizeBackendOGSremote', function(.Object, config,
 	# equivalent code to prepare remote config
 	#Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
 	Lapply_remote_config$activeDictionary = Lapply_remote_config$backend;
-print(Lapply_remote_config)
+	#print(Lapply_remote_config)
 	Lapply_remote_config
 }
 .OGSremoteFile = function(self, tag = '', ext = '.RData') {
