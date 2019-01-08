@@ -751,7 +751,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 	libraries = unique(c(
 		if (no_parallelize_dynamic) c() else 'parallelize.dynamic',
 		if (declare_reset) c() else configPre$libraries,
-		libraries
+		Lapply_config$libraries, Lapply_config$backends[[backend]]$libraries, libraries
 	));
 	copyFiles = if (declare_reset) c() else configPre$copyFiles;
 	backendClass = firstDef(Lapply_config$backends[[backend]]$backend, backend);
