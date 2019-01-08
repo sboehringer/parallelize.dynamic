@@ -256,7 +256,8 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendOGS', function(self) {
 		r = freezeCallOGS(self, ogs_frozen_call__, listcalls = mycalls, Lapply_config = lcfg,
 			freeze_file = path, freeze_control = freeze_control_chunk,
 			cwd = getwd(),
-			qsubMemory = remoteConfig$qsubParallelMemory,
+			qsubMemory = self@config$qsubParallelMemory,
+			#qsubMemory = remoteConfig$qsubParallelMemory,
 			thaw_transformation = thaw_object
 		);
 		r = c(r, list(file = path, from = idcs[job_index__, 1], to = idcs[job_index__, 2]));
