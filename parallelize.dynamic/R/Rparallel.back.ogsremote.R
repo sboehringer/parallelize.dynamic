@@ -113,17 +113,16 @@ OGSremoteCopyDictionary = function(config, self) {
 		if (is.null(d[[b]][[n]])) {	# copy object by assuming file
 			e = d$native[[n]];
 			files = if (is.list(e)) {
-				if (e$isPrefix) {
+				if (nif(e$isPrefix)) {
 					sp = splitPath(e$name);
 					# <A> quoting
-					list.files(sp$dir, Sprintf("^%{prefix}s", prefix = sp$file))
+					list.files(sp$dir, Sprintf("^%{prefix}s", prefix = sp$file), full.names = T)
 				} else e$name;
 			} else e;
+			File.copy(files, remoteDir, agent = 'rsync -avP', ignore.shell = F);
 			sp = splitPath(if (is.list(e)) e$name else e);
-			File.copy(paste(sp$dir, files, sep = '/'), remoteDir, agent = 'rsync -avP', ignore.shell = F);
 			with(splitPath(remoteDir, ssh = T), Sprintf('%{path}s/%{file}s', file = sp$file))
 		} else d[[b]][[n]];
-		
 	});
 	config$dictionary[[b]] = dictBackend;
 	return(config);
