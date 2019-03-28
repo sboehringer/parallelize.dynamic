@@ -170,7 +170,7 @@ freezeCallOGS = function(self, ..f, ...,
 	qsubOptions = Sprintf('%{options}s --outputDir %{qsubPath}Q %{wait}s %{qsubOptionsAdd}s',
 		options = self@config$qsubOptions
 	);
-	qsubOptions = mergeDictToString(list(`QSUB_MEMORY` = qsubMemory), qsubOptions);
+	qsubOptions = mergeDictToString(list(QSUB_MEMORY = qsubMemory), qsubOptions);
 	Logs("qsubOptions: %{qsubOptions}s", level = 5)
 	r = System(wrap, 5, patterns = patterns, qsubOptions = qsubOptions, cwd = cwd,
 		ssh_host = ssh_host, ssh_source_file = ssh_source_file, return.cmd = T);
@@ -204,7 +204,8 @@ setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self,
 		# .parallelizationStepOGS
 		pathHandover = pathHandover,
 		# freeze
-		freeze_file = path, freeze_control = freeze_control, qsubMemory = remoteConfig$qsubParallelMemory,
+		freeze_file = path, freeze_control = freeze_control,
+		qsubMemory = remoteConfig$backendConfig$qsubParallelMemory,
 		waitForJids = self@jids$chunksJids()
 	)
 	save(r0, file = pathHandover);
