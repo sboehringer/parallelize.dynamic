@@ -59,7 +59,15 @@ Log.level = function()get('GlobalLogLevel', envir = Log_env__);
 Log.setLevel = function(level = get('GlobalLogLevel', envir = Log_env__)) {
 	assign("GlobalLogLevel", level, envir = Log_env__);
 }
+Log.expr = function(level, expr, envir = parent.frame()) {
+	oldLevel = Log.level();
+	on.exit(Log.setLevel(oldLevel));
+	Log.setLevel(level);
+	return(eval(expr, envir = envir));
+}
+
 Log.setLevel(4);	# default
+
 
 Stop = function(..., call. = TRUE, domain = NULL, envir = parent.frame()) {
 	stop(Sprintf(list(...)[[1]], envir = envir), call., domain)
@@ -269,11 +277,45 @@ FreezeThawControlDefaults = list(
 	freeze_relative = F, freeze_ssh = T, logLevel = Log.level()
 );
 
+freezeObjectsCooked = function(objects, envir = parent.frame(), defaultEnv = 0) {
+	if (is.null(objects)) return(NULL);
+	ns = names(objects);
+	o = lapply(seq_along(objects), function(i) {
+		if (ns[i] != '') {
+			lapply(objects[[i]], function(n)setNames(list(get(n, envir = get(ns[i], envir))), n));
+		} else setNames(list(get(objects[[i]], envir = envir)), objects[[i]])
+	});
+	return(setNames(o, ns));
+}
+thawObjectsCooked = function(objects, envir = parent.frame(), assignPos = 1) {
+	if (is.null(objects)) return(NULL);
+	ns = names(objects);
+	freeze = lapply(seq_along(objects), function(i) {
+		if (ns[i] != '') {
+			os = sapply(objects[[i]], function(o) {
+				this = mget(ns[i], envir, ifnotfound = NA)[[1]];
+				if (!is.environment(this)) {
+					this = new.env();
+					assign(ns[i], this, pos = assignPos);
+				}
+				assign(names(o[1]), o[[1]], envir = this);
+				return(names(o[1]));
+			});
+			return(os);
+		} else {
+			assign(names(objects[[i]]), objects[[i]][[1]], pos = assignPos);
+			return(names(objects[[i]]));
+		}
+	});
+	return(setNames(freeze, ns));
+}
+
 thawCall = function(
 	freeze_control = FreezeThawControlDefaults,
-	freeze_tag = 'frozenFunction', freeze_file = sprintf('%s/%s.RData', freeze_control$dir, freeze_tag)) {
+	freeze_tag = 'frozenFunction', freeze_file = sprintf('%s/%s.RData', freeze_control$dir, freeze_tag),
+	envir = .GlobalEnv) {
 
-	load(freeze_file, envir = .GlobalEnv);
+	load(freeze_file, envir = envir);
 	r = with(callSpecification, {
 		for (library in freeze_control$libraries) {
 			eval(parse(text = sprintf('library(%s)', library)));
@@ -281,6 +323,7 @@ thawCall = function(
 		for (s in freeze_control$sourceFiles) source(s, chdir = T);
 		Log.setLevel(freeze_control$logLevel);
 		if (!is.null(freeze_control$rng)) RNGuniqueSeed(freeze_control$rng);
+		thawObjectsCooked(freeze_objects, envir);
 
 		if (is.null(callSpecification$freeze_envir)) freeze_envir = .GlobalEnv;
 		# <!> freeze_transformation must be defined by the previous source/library calls
@@ -313,7 +356,8 @@ frozenCallResults = function(file) {
 freezeCallEncapsulated = function(call_,
 	freeze_control = FreezeThawControlDefaults,
 	freeze_tag = 'frozenFunction', freeze_file = sprintf('%s/%s.RData', freeze_control$dir, freeze_tag),
-	freeze_save_output = F, freeze_objects = NULL, thaw_transformation = identity)
+	freeze_save_output = F, freeze_objects = NULL, freeze_objects_envir = parent.frame(),
+	thaw_transformation = identity)
 	with(merge.lists(FreezeThawControlDefaults, freeze_control), {
 
 	sp = splitPath(freeze_file, ssh = freeze_ssh);
@@ -341,7 +385,8 @@ freezeCallEncapsulated = function(call_,
 	#Save(c('callWrapper', 'callSpecification', 'thawCall', objects),
 	#	file = freeze_file, symbolsAsVectors = T);
 	#Save(c(c('callWrapper', 'callSpecification', 'thawCall'), objects),
-	Save(c('callWrapper', 'callSpecification', 'thawCall', freeze_objects),
+	freeze_objects = freezeObjectsCooked(freeze_objects, freeze_objects_envir);
+	Save(c('callWrapper', 'callSpecification', 'thawCall', 'freeze_objects'),
 		file = freeze_file, symbolsAsVectors = T);
 	freeze_file
 })
@@ -393,7 +438,8 @@ freezeCall = function(freeze_f, ...,
 
 	freezeCallEncapsulated(call_,
 		freeze_control = freeze_control, freeze_tag = freeze_tag,
-		freeze_file = freeze_file, freeze_save_output = freeze_save_output, freeze_objects = freeze_objects,
+		freeze_file = freeze_file, freeze_save_output = freeze_save_output,
+		freeze_objects = freeze_objects, freeze_objects_envir = freeze_envir,
 		thaw_transformation = thaw_transformation
 	);
 }

@@ -65,7 +65,7 @@ Identity = function(...)list(...)
 #	<p> benchmarking
 #
 
-benchmark.timed = function(.f, ..., N__ = 1e1) {
+benchmark.timed = function(.f, ..., N__ = 1) {
 	t0 = Sys.time();
 	for (i in 1:N__) {
 		r = .f(...);

@@ -158,13 +158,16 @@ freezeCallOGS = function(self, ..f, ...,
 	patterns = 'qsub', cwd = NULL, ssh_host = 'localhost', ssh_source_file = NULL,
 	qsubPath = parallelizationStatePath(self, 'qsub', ext = ''),
 	qsubMemory = '4G', qsubOptionsAdd = '',
-	envir = NULL, thaw_transformation = identity, freeze_env_eval = F) {
+	envir = NULL, thaw_transformation = identity, freeze_env_eval = F,
+	freeze_objects = NULL) {
 
 	path = freezeCall(freeze_f = ..f, ...,
 		freeze_file = freeze_file, freeze_save_output = T, freeze_control = freeze_control,
 		freeze_envir = NULL, freeze_env_eval = freeze_env_eval,
 		#freeze_objects = 'parallelize_env', thaw_transformation = thaw_transformation);
-		freeze_objects = NULL, thaw_transformation = thaw_transformation);
+		#freeze_objects = NULL, thaw_transformation = thaw_transformation);
+		freeze_objects = freeze_objects,
+		thaw_transformation = thaw_transformation);
 	wrap = frozenCallWrap(path, freeze_control);
 	wait = if (!length(waitForJids)) '' else sprintf('--waitForJids %s', paste(waitForJids, collapse = ','))
 	qsubOptions = Sprintf('%{options}s --outputDir %{qsubPath}Q %{wait}s %{qsubOptionsAdd}s',
@@ -190,7 +193,7 @@ setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self,
 	freeze_control = list(
 		sourceFiles = remoteConfig$sourceFiles,
 		libraries = unique(c('parallelize.dynamic', remoteConfig$libraries)),
-		objects = parallelizationStateObjects,
+		#objects = parallelizationStateObjects,
 		logLevel = Log.level(),
 		rng = RNGuniqueSeed(self@signature)
 	);
@@ -205,6 +208,7 @@ setMethod('scheduleNextParallelization', 'ParallelizeBackendOGS', function(self,
 		pathHandover = pathHandover,
 		# freeze
 		freeze_file = path, freeze_control = freeze_control,
+		freeze_objects = list(parallelize_env = parallelizationStateObjects),
 		qsubMemory = remoteConfig$backendConfig$qsubParallelMemory,
 		waitForJids = self@jids$chunksJids()
 	)

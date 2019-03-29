@@ -435,7 +435,7 @@ assign(".system.doLogOnly", FALSE, envir = System_env__);
 
 System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	doLog = TRUE, printOnly = NULL, return.output = F,
-	pattern = NULL, patterns = NULL, ..., return.cmd = F) {
+	pattern = NULL, patterns = NULL, ..., return.cmd = F, return.error = F) {
 	# prepare
 	if (!exists(".system.doLogOnly", envir = System_env__))
 		assign(".system.doLogOnly", F, envir = System_env__);
@@ -466,6 +466,10 @@ System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 		tmpOutput = tempfile();
 		cmd = sprintf("%s > %s", cmd, tmpOutput);
 	}
+	if (return.error & !doLogOnly) {
+		tmpError = tempfile();
+		cmd = sprintf("%s 2> %s", cmd, tmpError);
+	}
 	# logging
 	if (doLog){ Log(sprintf("system: %s", cmd), logLevel); }
 	# system call
@@ -474,7 +478,10 @@ System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	# return value
 	r = list(error = ret);
 	if (return.output & !doLogOnly) {
-		r = merge.lists(r, list(error = ret, output = readFile(tmpOutput)));
+		r = merge.lists(r, list(output = readFile(tmpOutput)));
+	}
+	if (return.error & !doLogOnly) {
+		r = merge.lists(r, list(output.err = readFile(tmpError)));
 	}
 	# postprocess
 	if (!doLogOnly) if (!is.null(patterns)) {
@@ -486,7 +493,7 @@ System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	}
 	if (return.cmd) r$command = cmd;
 	# simplified output
-	if (!return.output && !return.cmd && is.null(pattern)) r = r$error;
+	if (!return.output && !return.cmd && !return.error && is.null(pattern)) r = r$error;
 	r
 }
 SystemS = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
@@ -619,7 +626,9 @@ clapply_cluster = function(l, .f, ..., clCfg = NULL) {
 			if (!is.null(env$setwd)) setwd(env$setwd);
 			if (!is.null(cfg$source)) for (s in cfg$source) source(s, chdir = TRUE);
 			if (!is.null(cfg$libraries))
-				for (package in cfg$libraries) library(package, character.only = TRUE);
+				#for (package in cfg$libraries) library(package, character.only = TRUE);
+				# <N> shiny hack
+				for (package in cfg$libraries) do.call('library', list(package, character.only = TRUE));
 			# <!> as of 3.4.2013: stop support of exporting global variables to enable CRAN submission
 			#if (!is.null(env$globalVars))
 			#	for (n in names(env$globalVars)) assign(n, env$globalVars[[n]], pos = .GlobalEnv);
@@ -1413,7 +1422,8 @@ activateModule = function(path) {
 #
 #	<p> sqlite
 #
-sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, unique = list()) {
+sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, unique = list(),
+	tableName = 'data') {
 	# <p> types
 	types = merge.lists(listKeyValue(columns, rep('text', length(columns))), types);
 	# <p> cols
@@ -1424,12 +1434,13 @@ sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, 
 		Sprintf('UNIQUE (%{cols}s) ON CONFLICT FAIL', cols = join(qs(u, force = T), ', '))
 	}), ', '), pre = ' , ');
 	createDbSql = join(sep = "\n", c(
-		Sprintf('CREATE TABLE data (%{cols}s%{unique}s);'),
+		Sprintf('CREATE TABLE %{tableName}s (%{cols}s%{unique}s);'),
 		if (is.null(index)) c() else sapply(1:length(index), function(i)
-			sprintf('CREATE INDEX index_%d ON data (%s);', i, join(qs(index[[i]], force = T), sep = ', '))),
+			Sprintf('CREATE INDEX index_%{tableName}s_%{i}d ON %{tableName}s (%{cols}s);',
+				cols = join(qs(index[[i]], force = T), sep = ', '))),
 		'.quit', ''
 	));
-	if (!is.null(createAt)) System(sprintf('echo \'%s\' | sqlite3 %s', createDbSql, qs(createAt)), 1);
+	if (!is.null(createAt)) System(sprintf('echo \'%s\' | sqlite3 %s', createDbSql, qs(createAt)), 5);
 	createDbSql
 }
 
@@ -1439,40 +1450,51 @@ sqlCreateTable = function(columns, types = list, index = NULL, createAt = NULL, 
 
 sqlTypeMap = list(integer = 'integer', numeric = 'real', character = 'text');
 csv2sqlitSepMap = readTableSepMap;
-sepMap = list(T = '\\t', S = ' ', C = ',', `;` = ';', `S+` = '');
-sepMapCut = list(T = '\\t', S = '" "', C = ',', `;` = ';', `S+` = '');
+sepMap = list(T = '\\t', S = ' ', C = ',', `;` = ';', `S+` = ' ');
+sepMapCut = list(T = '\\t', S = '" "', C = ',', `;` = ';', `S+` = '" "');
 csv2sqlite = function(path, output = tempfile(),
 	columnsNames = NULL, columnsSelect = NULL,
 	index = NULL,
-	inputSep = 'T', inputHeader = T, inputSkip = NULL,
-	NULLs = NULL, types = list(), newDb = T, unique = list()) {
-	if (is.null(output)) stop(Sprintf('No ouput path given for sqlite DB [NULL]@csv2sqlite'));
-	if (newDb) file.remove(output);
-
+	inputSep = 'T', inputHeader = T, inputSkip = 0,
+	NULLs = NULL, types = list(), newDb = T, unique = list(),
+	tableName = 'data', removeLeadingWS = T, headerMap = NULL) {
+	if (is.null(output)) stop(Sprintf('No output path given for sqlite DB [NULL]@csv2sqlite'));
+	if (newDb && file.exists(output)) file.remove(output);
 	# <!> cave: does not heed skip
 	if (inputHeader && is.null(columnsNames)) {
 		columnsNames = read.table(path, header = F, nrows = 1, sep = csv2sqlitSepMap[[inputSep]]);
 	}
 	# <p> select columns
-	cut = if (!is.null(columnsSelect)) {
-		skipColumnsIds = which.indeces(columnsSelect, avu(columnsNames));
-		sprintf('| cut %s -f %s ',
-			if (inputSep == 'T') '' else sprintf('-d %s', sepMapCut[[inputSep]]),
-			join(skipColumnsIds, ',')
+	#	<!> cave cut sorts provided indeces
+	prefix = if (removeLeadingWS) "sed 's/^\\s\\s*//' |" else '';
+	cut = if (notE(columnsSelect)) {
+		Isel = which.indeces(columnsSelect, avu(columnsNames));
+		columnsSelect = columnsSelect[order(Isel)];	# align ordering
+		# <i> S+
+		#  cat | sed 's/\s\s*/ /g' | cut -d' ' -f5
+		cut = if (inputSep == 'S+')
+			Sprintf("%{prefix}s sed 's/\\s\\s*/ /g' | cut") else Sprintf('%{prefix}s cut');
+		Sprintf('| %{cut}s %{sep}s -f %{columns}s ',
+			sep = if (inputSep == 'T') '' else sprintf('-d %s', sepMapCut[[inputSep]]),
+			columns = join(sort(Isel), ',')
 		)
 	} else '';
-	columns = if (is.null(columnsSelect)) columnsNames else columnsSelect;
+	columns = if (notE(columnsSelect)) columnsSelect else columnsNames;
 	types = merge.lists(listKeyValue(columns, rep('text', length(columns))), types);
-	sqlCreateTable(columns, types, index, createAt = output, unique = unique);
+	columnsDb = if (notE(headerMap)) avu(headerMap[columns]) else columns;
+	sqlCreateTable(columnsDb, types, index, createAt = output, unique = unique, tableName = tableName);
 
 	# <p> import data
-	skipCommand = if (is.null(inputSkip)) '' else sprintf('| tail -n +%d ', inputSkip + 1);
-	sp = splitPath(path)$ext;
+	#skipCommand = if (is.null(inputSkip)) '' else sprintf('| tail -n +%d ', inputSkip + 1);
+	# <N> always skip header as column re-mapping might have occured
+	skipCommand = sprintf('| tail -n +%d ', inputSkip + 2);
+	sp = splitPath(path);
 	reader = if (notE(sp$ext) && sp$ext == 'gz') 'zcat' else 'cat';
-	importSql = writeFile(tempfile(), join(sep = "\n", c(
-		sprintf(".separator %s\n", sepMap[[inputSep]]),
-		sprintf(".import \"/dev/stdin\" data")
-	)));
+	sqlStatements = c(
+		Sprintf(".separator %{sep}Q", sep = sepMap[[inputSep]]),
+		Sprintf(".import \"/dev/stdin\" %{tableName}s")
+	);
+	importSql = writeFile(tempfile(), join(sep = "\n", sqlStatements));
 
 	sepText = sepMap[[inputSep]];
 	filter = if (is.null(NULLs)) '' else
@@ -1481,7 +1503,7 @@ csv2sqlite = function(path, output = tempfile(),
 	cmd = Sprintf(con(
 		"%{reader}s %{path}Q %{skipCommand}s %{cut}s %{filter}s",
 		" | sqlite3 -init %{importSql}Q %{output}Q"));
-	System(cmd, 2);
+	System(cmd, 5);
 	output
 }
 # <!> unfinished, siphones code from old csv2sqlite function
@@ -1510,7 +1532,7 @@ sqlite2sqlite = function(dbS, dbD, query, cols, types = list(), index = NULL) {
 		qs(writeFile(tempfile(), ".separator ,\n.import \"/dev/stdin\" data")),
 		qs(dbD)
 	);
-	System(cmd, 1);
+	System(cmd, 5);
 	dbD
 }
 
@@ -1520,20 +1542,29 @@ sqliteOpen = function(path) {
 }
 
 sqliteQueryParticle = function(q) {
-	opRaw = if(length(q) > 2) q[[2]] else 'equal';
+	Nq = length(q);
+	opRaw = if(Nq > 2) q[[2]] else if (q[[1]] == 'Statement') q[[1]] else 'equal';
 	op = switch(opRaw,
 		equal = '=',
 		`<` = '<',
 		`>` = '>',
 		`< Int` = '<',
-		`> Int` = '>'
+		`> Int` = '>',
+		`< Num` = '<',
+		`> Num` = '>',
+		`< Char` = '<',
+		`> Char` = '>',
+		Statement = NA
 	);
-	add = if (opRaw %in% c('< Int', '> Int')) ' + 0' else '';
-	value = if(length(q) > 2) q[[3]] else q[[2]];
-	value = if (opRaw %in% c('< Int', '> Int')) value else Sprintf('%{value}Q');
-	with(q, Sprintf('%{name}Q%{add}s %{op}s %{value}s'));
+	suff = if (opRaw %in% c('< Int', '> Int', '< Num', '> Num')) ' + 0' else '';
+	value = if (Nq > 2) q[[3]] else q[[2]];
+	if (!(opRaw %in% c('< Int', '> Int', '< Num', '> Num', 'Statement'))) value = Sprintf('%{value}Q');
+	if (opRaw %in% c('Statement'))
+		with(q, Sprintf('%{value}s')) else
+		with(q, Sprintf('%{name}Q%{suff}s %{op}s %{value}s'))
 }
-sqliteBuildQuery = function(table, query, distinct = TRUE) {
+sqliteBuildQuery = function(table, query = NULL, distinct = TRUE) {
+	if (is.null(query)) return(Sprintf('SELECT * FROM %{table}Q'));
 	ns = names(query);
 	qs = ilapply(query, function(q, i)sqliteQueryParticle(c(list(name = ns[i]), q)));
 	condition = join(unlist(qs), sep = ' AND ');
@@ -1544,7 +1575,7 @@ sqliteBuildQuery = function(table, query, distinct = TRUE) {
 
 # query: list(chr = info$chr, mapPhy = list('> Int', pos - range), mapPhy = list('< Int', pos + range));
 
-sqliteQuery = function(db, query, table = NULL) {
+sqliteQuery = function(db, query = list(Statement = '1'), table = NULL) {
 	if (is.null(table)) table = dbListTables(db)[1];
 # 	query = con(sapply(names(query), function(n)Sprintf('%{n}Q = %{v}s', v = qs(query[[n]], force = T))));
 # 	query1 = Sprintf('SELECT * FROM %{table}Q WHERE %{query}s');
@@ -1695,7 +1726,9 @@ LibraryRaw = function(name, ..., repos, repoNoInteraction, repoDefault, quietly,
 			biocLite(name, suppressUpdates = TRUE, suppressAutoUpdate = TRUE, dependencies = dependencies)
 		}
 		#Eval(Sprintf('library(%{name}s)'));
-		library(name, character.only = TRUE, quietly = quietly);
+		#library(name, character.only = TRUE, quietly = quietly);
+		# <N> hack to get shiny running
+		do.call('library', list(name, character.only = TRUE, quietly = quietly));
 	}
 }
 
@@ -1724,7 +1757,9 @@ Library = function(name, ...,
 }
 Require = function(..., quietly = TRUE) {
 	wrapper = if (quietly) function(call_)suppressWarnings(suppressPackageStartupMessages(call_)) else eval
-	wrapper(require(..., quietly = quietly))
+	#wrapper(require(..., quietly = quietly))
+	# hack to get shiny running
+	wrapper(do.call('require', c(list(...), list(quietly = quietly))))
 }
 
 DumpPackageNames = function(path = '~/Documents/AdminComputer/R/packages-%{version}s.csv',
@@ -1794,3 +1829,9 @@ Knit = function(input, output = NULL, ..., format = 'html') {
 	setwd(owd);
 }
 
+
+#
+#	<p> stop
+#
+
+stopS = function(str, ...)stop(Sprintf(str, ...));
