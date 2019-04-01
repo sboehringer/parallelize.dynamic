@@ -73,6 +73,8 @@ OGS_OPTIONS
 OGS_EXPORTS
 OGS_SOURCE
 
+PREPARE_CMDS
+
 # Command
 CMD
 ';
@@ -134,6 +136,13 @@ sub submitCommand { my ($cmd, $o) = @_;
 	$opts{'-lhost'} = ('h=!('. join('|', split(/\s*,\s*/, $o->{excludeNodes})). ')')
 		if ($o->{excludeNodes} ne '');
 
+	# <p> preparatory commands
+	my $prep = '';
+	if ($o->{outputDir} ne '') {
+		$prep = "if [ -e \"$o->{outputDir}\" ]; then\n"
+			. "\tmv $o->{outputDir} $o->{outputDir}-`cat /dev/urandom | tr -cd 'a-f0-9' | head -c 8`\n"
+			. "fi";
+	}
 	# <p> construct script
 	# remove empty options
 	%opts = %{dict2defined({%opts})};
@@ -144,6 +153,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 		'OGS_OPTIONS' => join("\n", @options),
 		'OGS_EXPORTS' => join("\n", ((map { "export $_" } @env), $setenv)),
 		'OGS_SOURCE' => join("\n", (map { ". $_" } @sourceFiles)),
+		'PREPARE_CMDS' => $prep,
 		'CMD' => $cmd
 	}, $script, { sortKeys => 'YES' });
 
