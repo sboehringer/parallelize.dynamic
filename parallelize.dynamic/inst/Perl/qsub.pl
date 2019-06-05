@@ -138,9 +138,9 @@ sub submitCommand { my ($cmd, $o) = @_;
 
 	# <p> preparatory commands
 	my $prep = '';
-	if ($o->{outputDir} ne '') {
+	if ($o->{outputDir} ne '' && $o->{moveOutputDir}) {
 		$prep = "if [ -e \"$o->{outputDir}\" ]; then\n"
-			. "\tmv $o->{outputDir} $o->{outputDir}-`cat /dev/urandom | tr -cd 'a-f0-9' | head -c 8`\n"
+			. "\tmv $o->{outputDir} $o->{outputDir}-`cat /dev/urandom | tr -cd 'a-f0-9' | head -c 8` ; mkdir $o->{outputDir}\n"
 			. "fi";
 	}
 	# <p> construct script
@@ -175,6 +175,7 @@ sub submitCommand { my ($cmd, $o) = @_;
 	my $o = {
 		config => 'config.cfg',
 		outputDir => firstDef($ENV{QSUB_LOG_DIR}, 'qsub_jobOutputs'),
+		moveOutputDir => 0,
 		queue => firstDef($ENV{QSUB_QUEUE}, 'default'),
 		priority => firstDef($ENV{QSUB_PRIORITY}, 0),
 		tmpPrefix => firstDef($ENV{QSUB_TMPPREFIX}, '/tmp/qsub_pl_'.$ENV{USER}),

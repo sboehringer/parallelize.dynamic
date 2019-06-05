@@ -55,6 +55,12 @@ CallDelegate = function(functionBase, delegation, ..., restrictArgs = T) {
 	callDelegate(functionBase, delegation, args = list(...), restrictArgs = T)
 }
 
+# call function with seperate arguments extracted from vector
+V2A = function(f)function(x, ...)do.call(f, c(as.list(x), list(...)));
+# call function with vector constructed from seperate arguments
+A2V = function(f)function(...)f(c(...));
+
+
 #
 #	<p> generic functions
 #

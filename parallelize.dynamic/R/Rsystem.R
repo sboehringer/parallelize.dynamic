@@ -320,6 +320,43 @@ GlobalOutput_env__ = new.env();
 }
 
 #
+#	create consecutive files
+#
+# findNextFile = function(path, N = 1e2) {
+# 	sp = splitPath(path);
+# 	for (i in 0:N) {
+# 		path = if (i > 0) with(sp, Sprintf('%{fullbase}s-%{i}d.%{ext}')) else path;
+# 		if (!file.exists(path)) return(path);
+# 	}
+# 	stop(Sprintf('No path could be crated from base path: %{path}s'));
+# }
+
+findLastVersion = function(path, retAll = F) {
+	sp = splitPath(path);
+	E = if (is.null(sp$ext)) '' else with(sp, Sprintf('.%{ext}s'));
+	re = with(sp, Sprintf('^%{base}s-(\\d+)%{E}s$'));
+	files = list.files(sp$dir, pattern = re);
+	i = max(c(0, as.integer(Regexpr(re, files, captures = T))));
+	highest = if (i == 0) path else with(sp, Sprintf('%{fullbase}s-%{i}d%{E}s'));
+	return(if (retAll) list(path = highest, version = i, ext = E) else highest);
+}
+
+findNextFile = function(path, Nmax = 1e2) {
+# 	sp = splitPath(path);
+# 	re = with(sp, Sprintf('^%{base}s-(\\d+).%{ext}s$'));
+# 	files = list.files(sp$dir, pattern = re);
+	lv = findLastVersion(path, retAll = T);
+	v = lv$version;
+	if (v == 0 && !file.exists(path)) return(path);
+	if (v >= Nmax)
+		stop(Sprintf('No path could be crated from base path: %{path}s [Maximum versions exhausted: %{Nmax}d]'));
+	r = with(splitPath(path), Sprintf('%{fullbase}s-%{i}d%{ext}s', i = v + 1, ext = lv$ext));
+	LogS(6, 'findNextFile: %{r}s');
+	return(r);
+}
+
+
+#
 #	command argument handling
 #
 
@@ -953,7 +990,10 @@ readTable.SAV = readTable.sav = function(path, options = NULL, headerMap = NULL,
 	#Require('foreign');
 	#r0 = suppressWarnings(read.spss(path));
 	Require('haven');
-	r0 = haven2earth(suppressWarnings(read_spss(path)));
+	rRaw = if (nif(options) && nif(options$VERBOSE))
+		read_spss(path) else
+		suppressWarnings(read_spss(path));
+	r0 = haven2earth(rRaw);
 	r1 = as.data.frame(r0, stringsAsFactors = stringsAsFactors);
 # 	if (notE(options[['DATE']]))
 # 		r1[, options[['DATE']]] = do.call(data.frame,
@@ -1025,10 +1065,10 @@ readTable.defaultOptions = list(HEADER = TRUE);
 # <i> use tableFunctionForPath
 readTable = function(path, autodetect = T, headerMap = NULL, extendedPath = T, colnamesFile = NULL, ...,
 	as_factor = NULL, stringsAsFactors = F, defaultReader = readTable.csv, doRemoveTempFile = TRUE,
-	forceReader = NULL, ssh = F) {
+	forceReader = NULL, ssh = F, options = list()) {
 	# <p> preparation
 	pathOrig = path = join(path, '');
-	o = readTable.defaultOptions;
+	o = merge.lists(readTable.defaultOptions, options);
 	if (extendedPath) {
 		r = splitExtendedPath(path);
 		path = r$path;
@@ -1554,6 +1594,7 @@ sqliteQueryParticle = function(q) {
 		`> Num` = '>',
 		`< Char` = '<',
 		`> Char` = '>',
+		'like' = 'LIKE',
 		Statement = NA
 	);
 	suff = if (opRaw %in% c('< Int', '> Int', '< Num', '> Num')) ' + 0' else '';
@@ -1574,14 +1615,15 @@ sqliteBuildQuery = function(table, query = NULL, distinct = TRUE) {
 }
 
 # query: list(chr = info$chr, mapPhy = list('> Int', pos - range), mapPhy = list('< Int', pos + range));
+#	list(id = list(like = 'rs%'))
 
-sqliteQuery = function(db, query = list(Statement = '1'), table = NULL) {
+sqliteQuery = function(db, query = list(Statement = '1'), table = NULL, N = -1) {
 	if (is.null(table)) table = dbListTables(db)[1];
 # 	query = con(sapply(names(query), function(n)Sprintf('%{n}Q = %{v}s', v = qs(query[[n]], force = T))));
 # 	query1 = Sprintf('SELECT * FROM %{table}Q WHERE %{query}s');
 	query1 = sqliteBuildQuery(table, query);
 	Log(query1, 5);
-	dbGetQuery(db, query1);
+	dbGetQuery(db, query1, n = N);
 }
 
 #
@@ -1597,11 +1639,14 @@ sqliteQuery = function(db, query = list(Statement = '1'), table = NULL) {
 # publishDir('results/BAP1IHCgekoppeldaanWelofGeenMonosomie3', asSubdir = T);
 
 Publishing_env__ <- new.env();
-initPublishing = function(project, currentIteration, publicationPath = '/home/Library/ProjectPublishing') {
+initPublishing = function(project, currentIteration, publicationPath = '/home/Library/ProjectPublishing',
+	logLevel = 5) {
+	md5 = md5sumString(project);
 	assign('project', project, Publishing_env__);
-	assign('projectMd5', md5sumString(project), Publishing_env__);
+	assign('projectMd5', md5, Publishing_env__);
 	assign('currentIteration', currentIteration, Publishing_env__);
 	assign('publicationPath', publicationPath, Publishing_env__);
+	LogS(logLevel, "Project tag: %{project}s Md5: %{md5}s");
 }
 publishFctEnv = function(path, into = NULL, as = NULL) with(as.list(Publishing_env__), {
 	if (!exists('project')) stop('Publishing system not yet initialized.');
@@ -1835,3 +1880,16 @@ Knit = function(input, output = NULL, ..., format = 'html') {
 #
 
 stopS = function(str, ...)stop(Sprintf(str, ...));
+
+#
+#	<p> debugging
+#
+
+# r__: return printed values as list
+dprint = function(..., r__ = TRUE) {
+	vs = as.character(as.list(substitute(list(...)))[-1]);
+	l = listKeyValue(vs, c(...));
+	print(list2df(l));
+	if (r__) return(l);
+}
+

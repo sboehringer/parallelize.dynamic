@@ -1346,6 +1346,15 @@ pairslapply = function(l1, l2, f, ...) {
 sapplyWoI = function(v, f, ...)sapply(v, function(i, ...)f(...), ...)
 lapplyWoI = function(v, f, ...)lapply(v, function(i, ...)f(...), ...)
 
+dfapply = function(Df__, f__) {
+	r = lapply(1:nrow(Df__), function(i) {
+		r = Df__[i, ];
+		return(Df_(f__(as.list(r))));
+	});
+	Dfr = do.call(rbind, r);
+	return(Dfr);
+}
+
 filterList = function(o, f, ...) {
 	l = sapply(o, f, ...);
 	if (length(l) == 0) l = NULL;	#list corner case
@@ -2194,7 +2203,8 @@ Df_ = function(df0, headerMap = NULL, names = NULL, min_ = NULL,
 	# sanitize row.names
 	dn = dimnames(df0);
 	if (Nif(dn) && any(duplicated(dn[[1]]))) dimnames(df0)[[1]] = NULL;
-	if (length(row.names) == 0 || !is.na(row.names)) base::row.names(df0) = row.names;
+	# <!> commented out on 4.4.2019, test implemented to fix this behavior
+	#if (length(row.names) == 0 || !all(is.na(row.names))) base::row.names(df0) = row.names;
 
 	if (apply_) df0 = as.data.frame(apply(df0, 2, identity));
 	#if (!Nif(Apply_)) df0 = as.data.frame(apply(df0, 2, Apply_));
@@ -2260,8 +2270,7 @@ Df_ = function(df0, headerMap = NULL, names = NULL, min_ = NULL,
 	#
 	if (notE(transf_log)) r[, transf_log] = log(r[, transf_log, drop = F]);
 	if (notE(transf_m1)) r[, transf_m1] = r[, transf_m1, drop = F] - 1;
-
-	if (!all(is.na(row.names))) row.names(r) = row.names;
+	if (length(row.names) == 0 || !all(is.na(row.names))) base::row.names(r) = row.names;
 	if (unlist_cols) for (n in names(r)) r[[n]] = avu(r[[n]]);
 	r
 }

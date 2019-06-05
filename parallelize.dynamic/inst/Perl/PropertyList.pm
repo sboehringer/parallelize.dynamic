@@ -347,16 +347,16 @@ sub propertyFromStringFastRaw { my ($tokens) = @_;
 		do {
 			push(@{$array}, propertyFromStringFastRaw($tokens));
 			$token = shift(@{$tokens});	# comma or parenthesis
-			badPlistHere(0, "array") if ($token ne ',' && $token ne ')');	# '('
+			badPlistHere(0, "array", join(' ', @$tokens)) if ($token ne ',' && $token ne ')');	# '('
 		} while ($token ne ')' && defined($token));	# '('
 		badPlistHere(0, "array termination") if (!defined($token));
 		return $array;
 	} elsif ($token eq '{') {
 		my $dict = {};
 		while (($token = shift(@{$tokens})) ne '}' && defined($token)) {	# '{' (bracket)
-			badPlistHere(0, "dict key") if (shift(@{$tokens}) ne '=');
+			badPlistHere(0, "dict key", join(' ', @$tokens)) if (shift(@{$tokens}) ne '=');
 			$dict->{$token} = propertyFromStringFastRaw($tokens);
-			badPlistHere(0, "dict value") if (shift(@{$tokens}) ne ';');
+			badPlistHere(0, "dict value", join(' ', @$tokens)) if (shift(@{$tokens}) ne ';');
 		}
 		badPlistHere(0, "dict termination") if (!defined($token));
 		return $dict;

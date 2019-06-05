@@ -7,7 +7,7 @@ require	Exporter;
 
 @ISA		= qw(Exporter);
 
-@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &makeHashPairs &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &multiply &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &firstTrue &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &dictPath &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround &changeSet &syncSets &hashPrune &readPrefixedTable &readPrefixedTableString);
+@EXPORT		= qw(&intersection &minus &product &union &pair &substitute &productJoin &join2 &joinNE &makeHash &makeHashPairs &dictWithKeys &mergedHashFromHash &mergeDict2dict &arrayFromKeys &mergeDict2dictDeeply &deepCopy &valuesForKeys &readHeadedTable &readHeadedTableString &readHeadedTableHandle &readCsv &writeCsv &tableColumn &tableAddColumn &writeHeadedTable &productT &productTL &arrayIsEqualTo &stripWhiteSpaceForColumns &multiply &sum &max &min &Min &Max &scaleSetTo &dictFromDictArray &toList &definedArray &definedDict &firstDef &firstTrue &compareArrays &inverseMap &dictIsContainedInDict &keysOfDictLevel &sortTextNumber &readUnheadedTable &indexOf &mapDict &subDictFromKeys &dictPath &compareSets &arrayFromDictArrayWithKey &unique &cmpSets &unlist &any &all &dict2defined &instantiateHash &order &which &whichMax &which_indeces &hashSlice &hashMin &moddiv &modfloor &modround &changeSet &syncSets &hashPrune &readPrefixedTable &readPrefixedTableString &cumSum);
 
 use TempFileNames;
 
@@ -688,12 +688,15 @@ sub dictFromDictArray { my ($array, $key) = @_;
 
 # compute a Map with value => key
 # which of course is not unique
+# if values are ARRAYS, associate all values with key
 
 sub inverseMap { my ($dict) = @_;
 	my $idict = {};
 
-	foreach $k (keys %{$dict}) {
-		$idict->{$dict->{$k}} = $k;
+	foreach my $k (keys %{$dict}) {
+		if (ref($dict->{$k}) eq 'ARRAY') {
+			foreach my $v (@{$dict->{$k}}) { $idict->{$v} = $k; }
+		} else { $idict->{$dict->{$k}} = $k; }
 	}
 	return $idict;
 }
@@ -767,6 +770,14 @@ sub hashSlice { my ($h, $keys) = @_;
 sub hashMin { my ($h, $keys) = @_;
 	my $k = minus([keys %$h], $keys);
 	return makeHash($k, [@{$h}{$k}]);
+}
+
+sub cumSum { my (@a) = @_;
+	my @r;
+	for (my $i = 0; $i < @a; $i++) {
+		$r[$i] = ($i > 0? $r[$i - 1]: 0) + $a[$i];
+	}
+	return @r;
 }
 
 #
