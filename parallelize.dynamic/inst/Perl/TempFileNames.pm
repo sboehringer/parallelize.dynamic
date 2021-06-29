@@ -117,7 +117,7 @@ sub tempFileName { my ($prefix, $postfix, $onHost, $dontDelete, $digits) = @_;
 }
 
 sub tempEdit { my ($s, $o) = @_;
-	my $path = tempFileName(firstDef($o->{tempfilePrefix}, "/tmp/tempEdit"));
+	my $path = tempFileName(Set::firstDef($o->{tempfilePrefix}, "/tmp/tempEdit"));
 	writeFile($path, $s);
 	System("vi $path", 5);
 	$s = readFile($path);
@@ -176,7 +176,7 @@ sub firstFile { my ($filePath, $dirs, $extensions, $c) = @_;
 	#foreach $dir ($p->{directory}, @$dirs) {
 	foreach $dir (@$dirs) {
 		foreach $ext ($p->{extension}, @$extensions) {
-			my $file = firstDef($dir, '.'). "/$base". ($ext ne ''? ".$ext": '');
+			my $file = Set::firstDef($dir, '.'). "/$base". ($ext ne ''? ".$ext": '');
 			$file =~ s{^~}{$ENV{HOME}}o if (!$c->{dontInterpolateHome});
 			Log("firstFile: $file", 7);
 			return $file if -e $file;
@@ -290,7 +290,7 @@ sub readFile { my ($path, $host, $encodingFrom) = @_;
 	if (ref($host) eq 'HASH') {
 		$c = $host;
 		$encodingFrom = $c->{from};
-		$encodingTo = firstDef($c->{to}, 'utf8');
+		$encodingTo = Set::firstDef($c->{to}, 'utf8');
 		$host = $c->{host};
 	}
 
@@ -311,7 +311,7 @@ sub readFile { my ($path, $host, $encodingFrom) = @_;
 		my $l;
 		if (!defined($path)) {
 			$handle = \*STDIN;
-			$l = firstDef($c->{stdinLength}, 1e7); #handleLength($handle);
+			$l = Set::firstDef($c->{stdinLength}, 1e7); #handleLength($handle);
 		} else {
 			if ($filter ne '') { $filter = "cat '$path' | $filter"; } else { $filter = $path; }
 			return undef if ((! -e $path && !($path =~ m{[|<>]}o))
@@ -340,7 +340,7 @@ sub writeFile { my ($path, $buffer, $doMakePath, $fileMode, $dirMode, $host) = @
 		('doMakePath','fileMode','dirMode','host','group')};
 	}
 	if (defined($c->{encodeFrom}) && $c->{encodeFrom} ne 'raw') {
-		my $enc = firstDef($c->{encodeFrom}, 'utf8');
+		my $enc = Set::firstDef($c->{encodeFrom}, 'utf8');
 		load('Encode', 'encode'); #eval("use Encode;");
 		$buffer = encode($enc, $buffer);
 	}
@@ -437,7 +437,7 @@ sub Rename { my ($from, $files, $to, $logLevel, $c) = @_;
 			: ( { from => $from, to => $to } );
 	# <p> case 1
 	} else {
-		my $m = firstDef($c->{mapper}, \&standardMapper);
+		my $m = Set::firstDef($c->{mapper}, \&standardMapper);
 		@stack = ( map { { from => "$from/$_", to => "$to/". $m->($_, $from, $to) } } @$files );
 	}
 	foreach $m (@stack) {
@@ -604,7 +604,7 @@ sub dirListDeep { my ($path, $o) = @_;
 	# <i> implement fileManager
 	die 'remote dirListDeep not supported' if ($host ne '' && $host ne 'localhost');
 	$host = '' if ($host eq 'localhost');
-	my $c = { %$o, maxDepth => firstDef($o->{maxDepth}, $o->{exactDepth}),
+	my $c = { %$o, maxDepth => Set::firstDef($o->{maxDepth}, $o->{exactDepth}),
 		exactDepth => $o->{exactDepth}, files => [], host => $host };
 	depthSearchDir($pathLocal, sub { my ($p, $c) = @_;
 		my $file = substr($p, length($pathLocal) + 1);
@@ -671,7 +671,7 @@ sub dirListPattern { my ($prefix, $postfix, $o) = @_;
 		my $r = System('find '. qs($sp->{dir}), 5, undef, { returnStdout => 'YES' });
 		@files = map { substr($_, length($sp->{dir})) } split(/\n/, $r->{output});
 	} else {
-		@files = dirList(firstDef($o->{asDir}? $prefix: $sp->{dir}, '.'),
+		@files = dirList(Set::firstDef($o->{asDir}? $prefix: $sp->{dir}, '.'),
 			defined($o)? $o->{host}: undef);
 	}
 	@files = grep { /^$sp->{file}.*($postfix)$/ } @files;
@@ -688,12 +688,12 @@ sub FileList { my ($prefix, $postf, $o) = @_;
 }
 
 sub normalizedPath { my($path, $sep, $doSlashes, $beURLaware, $beAbsolute) = @_;
-	my $c = firstDef($sep, {});
+	my $c = Set::firstDef($sep, {});
 	if (ref($c) eq 'HASH') {
-		$sep = firstDef($c->{sep}, $c->{separator}, '/');
-		$doSlashes = firstDef($c->{doSlashes}, 1);
-		$beURLaware = firstDef($c->{beURLaware}, 0);
-		$beAbsolute = firstDef($c->{beAbsolute}, 0);
+		$sep = Set::firstDef($c->{sep}, $c->{separator}, '/');
+		$doSlashes = Set::firstDef($c->{doSlashes}, 1);
+		$beURLaware = Set::firstDef($c->{beURLaware}, 0);
+		$beAbsolute = Set::firstDef($c->{beAbsolute}, 0);
 	}
 
 	if ($beAbsolute && substr($path, 0, 1) ne '/') {
@@ -719,7 +719,7 @@ sub normalizedPath { my($path, $sep, $doSlashes, $beURLaware, $beAbsolute) = @_;
 	return $path;
 }
 sub relativePath { my($absCurr, $absDest, $sep, $ignoreCase)=@_;
-	$sep = firstDef($sep, '/');
+	$sep = Set::firstDef($sep, '/');
 	#	trailing null fields are stripped
 	my ($curS,$curD)=(normalizedPath($absCurr), normalizedPath($absDest));
 	my @curr=($curS eq $sep)? (''): split(/$sep/, $curS);
@@ -795,10 +795,11 @@ sub pipeStringToCommandSystem { my ($strRef, $cmd, $logLevel)=@_;
 # flags:
 #	maxIterations: for iterate eq 'YES' iterate that often. 0: 2^(bitWidth - 1) iterations
 sub mergeDictToString { my ($hash, $str, $flags)=@_;
-	my $maxIterations = firstDef($flags->{maxIterations}, 100);
+	my $maxIterations = Set::firstDef($flags->{maxIterations}, 100);
 	my @keys = grep { defined($hash->{$_}) } keys(%{$hash});
 	my $doIterate = uc($flags->{iterate}) eq 'YES';
 	my $keysRe = uc($flags->{keysAreREs}) eq 'YES';
+	my $ws = uc($flags->{keysWs}) eq 'YES';
 	if (uc($flags->{sortKeys}) eq 'YES' || $doIterate)
 	{	@keys = sort { length($b) <=> length($a) } @keys;
 	}
@@ -810,6 +811,7 @@ sub mergeDictToString { my ($hash, $str, $flags)=@_;
 		$str0 = $str;
 		foreach $key (@keys)
 		{	if ($keysRe) {	$str =~ s/$key/$hash->{$key}/sg; }
+			elsif ($ws) {	$str =~ s/(?:(?<=\s)|^)\Q$key\E(?=\s|$)/$hash->{$key}/sg; }
 			else {			$str =~ s/\Q$key\E/$hash->{$key}/sg; }
 			# need to start from beginning to retain length order
 			last if ($doIterate && $str ne $str0);
@@ -1177,7 +1179,7 @@ sub splitPathDict { my ($path, $doTestDir, $fileNameToSubstitue, %c)=@_;
 # 	perc|percentage: percentage to print
 # 	width: width of resulting string
 sub progressPrint { my ($p, %a) = @_;
-	my $w = firstDef($a{width}, 20) - 2;	# remaining width without delimeters
+	my $w = Set::firstDef($a{width}, 20) - 2;	# remaining width without delimeters
 	return '<'. ( '=' x $w ). '>' if ($p == 1);
 	# progress position
 	my $pp = max(int($p * $w + 0.5), 1);
@@ -1251,7 +1253,7 @@ sub testService { my ($MUTEX, $serviceName) = @_;
 	writeFile($MUTEX, '') if (! -e $MUTEX);
 	open($MUTEX, $MUTEX);
 		return 0 if (!flock($MUTEX, LOCK_EX));
-			my $pid = firstDef(readFile("${MUTEX}_pid"), 12345 );
+			my $pid = Set::firstDef(readFile("${MUTEX}_pid"), 12345 );
 			my ($name) = (`ps -p $pid -w -w -o command=` =~ m{(\S+)\n*$}so);
 			if ($name eq $serviceName) {
 				$r = 0;
@@ -1347,20 +1349,20 @@ sub formatTableHeader { my ($d, $cols) = @_;
 	#$fmt =~ s{%0?\*\.?\d?[df]}{%*s}sog;
 	my $fmt = join(' ', ('%*s') x int(@$cols));
 	my $header = sprintf($fmt, map {
-		( -abs($d->{columns}{$_}{width}), ucfirst(firstDef($d->{columns}{$_}{rename}, $_)) )
+		( -abs($d->{columns}{$_}{width}), ucfirst(Set::firstDef($d->{columns}{$_}{rename}, $_)) )
 	} @$cols);
 	return $header;
 }
 sub formatTableRows { my ($d, $t, $cols) = @_;
 	my $fmt = join(' ', map {
-		firstDef($Set::tableFormats{$_->{format}}{format}, $_->{format})
+		Set::firstDef($Set::tableFormats{$_->{format}}{format}, $_->{format})
 	} @{$d->{columns}}{@$cols});
 	my @rows = map { my $r = $_;
 		sprintf($fmt, map { my $c = $_;
 			my $col = $d->{columns}{$c};
 			my $f = $col->{format};
 			my $m = $col->{method};
-			my $v = traverse($r, firstDef($col->{keyPath}, $c));
+			my $v = traverse($r, Set::firstDef($col->{keyPath}, $c));
 			my $tr = $Set::tableFormats{$f}{transform};
 			$v = $tr->($v) if (defined($tr));
 			# <p> width

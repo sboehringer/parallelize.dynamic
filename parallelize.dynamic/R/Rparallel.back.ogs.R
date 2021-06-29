@@ -81,7 +81,7 @@ setClass('ParallelizeBackendOGS',
 	prototype = list(jids = .ParallelizeBackendOGSstateClass$new())
 );
 .ParallelizeBackendOGSDefaultConfig = list(
-	qsubOptions = '--queue all.q'
+	qsubOptions = '--queue all'
 );
 
 setMethod('initialize', 'ParallelizeBackendOGS', function(.Object, config, ...) {
