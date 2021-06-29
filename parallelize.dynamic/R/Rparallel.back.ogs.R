@@ -317,8 +317,9 @@ progressString = function(stat, title = 'Task', format = .stdProgressFormat, Nan
 }
 
 .pollJids = function(...) {
-	qstat = System("qstat -u \\* -xml | xml sel -t -m '//JB_job_number' -v 'text()' -o ' '",
-		logLevel = 6, ..., return.output = T);
+	#qstat = System("qstat -u \\* -xml | xml sel -t -m '//JB_job_number' -v 'text()' -o ' '",
+	#	logLevel = 6, ..., return.output = T);
+	qstat = System("squeue -o '%i' -u $USER -h", logLevel = 6, ..., return.output = T);
 	jids = fetchRegexpr('(\\d+)', qstat$output, captures = T);
 	jids
 }
