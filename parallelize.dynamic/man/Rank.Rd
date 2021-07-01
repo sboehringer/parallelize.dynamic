@@ -2,11 +2,20 @@
 % Please edit documentation in R/Rdata.R
 \name{Rank}
 \alias{Rank}
-\title{Computes order so that inverseOrder after order is the identity}
+\title{Computes order so that inverseOrder after order is the identity
+
+Caculate ranks for arguemnt \code{p}. Works on vactors and data frames.}
 \usage{
 Rank(p)
 }
-\examples{
-v = runif(1e2);
-print(all(sort(v)[inverseOrder(v)] == v))
+\arguments{
+\item{p}{object for which ranks are to be comptued}
+}
+\value{
+vector of ranks of elements of \code{p}
+}
+\description{
+Computes order so that inverseOrder after order is the identity
+
+Caculate ranks for arguemnt \code{p}. Works on vactors and data frames.
 }

@@ -4,33 +4,45 @@
 \alias{iterateModels_raw}
 \title{Iterate combinations of parameters}
 \usage{
-iterateModels_raw(modelList, models, f_iterate = function(...) list(...), ...,
-  callWithList = F, callMode = NULL, restrictArgs = T, parallel = F,
-  lapply__)
+iterateModels_raw(
+  modelList,
+  models,
+  f_iterate = function(...) list(...),
+  ...,
+  callWithList = FALSE,
+  callMode = NULL,
+  restrictArgs = TRUE,
+  parallel = FALSE,
+  lapply__
+)
 }
 \arguments{
-\item{selectIdcs}{restrict models to the given indeces}
+\item{modelList}{list specifying the models (see details)}
+
+\item{models}{matrix containing indeces to sub-models (see details)}
+
+\item{f_iterate}{function to be iterated across models}
+
+\item{...}{extra arguments to be passed to \code{f_iterate()}}
+
+\item{callWithList}{boolean to indicate whether model combination is to be supplied as a list.
+Otherwise model specification is inlined as arguments (see details)}
+
+\item{callMode}{'inline', 'list', 'inlist'}
+
+\item{restrictArgs}{boolean to indicate whether over-supplied arguments (with respect to \code{f_iterate()})}
+
+\item{parallel}{boolean to inidcate whether iteration should be parallelized with
+\code{parallelize.dynamic}}
+
+\item{lapply__}{the iterator to be used (ignored at this moment)}
+}
+\value{
+list containing the result of \code{f_iterate()} for all paramter combinations
 }
 \description{
-This function takes a list of parameters for which several values are to be evaluated. These values can be vectors of numbers or lists that contain blocks of parameters. All combinations are formed and passed to a user supplied function \code{f}. This functions takes an index of the combination together with parameter values. Argument \code{callWithList} controls whether there is exactly one argument per parameter position or wether one more step of unlisting takes place. In case that a block of parameters is supplied, all values of the block are passed as individual arguments to \code{f} in case \code{callWithList == F}.
+This function takes a list of parameters for which several values are to be evaluated. These values can be vectors of numbers or lists that contain blocks of parameters. All combinations are formed and passed to a user supplied function \code{f_iterate()}. This functions takes an index of the combination together with parameter values. Argument \code{callWithList} controls whether there is exactly one argument per parameter position or wether one more step of unlisting takes place. In case that a block of parameters is supplied, all values of the block are passed as individual arguments to \code{f_iterate()} in case \code{callWithList == FALSE}.
 }
-\examples{
-modelList = list(global = list(list(a=1, b=2)), N = c(1, 2, 3));
-print(iterateModels(modelList));
-modelList = list(N = c(1, 2, 3), parsAsBlock = list(list(list(c = 1, d = 2)), list(list(c = 3, d = 4))));
-print(iterateModels(modelList));
-# ensure elements on A are given as a block (list)
-A = list(list(a = 1, b = 2), list(a = 3, b = 5));
-modelList = list(N = inlist(A), parsAsBlock = list(list(list(c = 1, d = 2)), list(list(c = 3, d = 4))));
-print(iterateModels(modelList));
-# shorter version of the above
-modelList = list(N = Inlist(list(a = 1, b = 2), list(a = 3, b = 5)), parsAsBlock = Inlist(list(c = 1, d = 2), list(c = 3, d = 4)));
-print(iterateModels(modelList));
-# inline calling
-modelList = list(N = list(list(a = 1, b = 2), list(a = 3, b = 5)), parsAsBlock = list(list(c = 1, d = 2), list(c = 3, d = 4)));
-print(iterateModels(modelList));
-
-
-
-callMode: 'inline', 'list', 'inlist'
+\details{
+#@param selectIdcs restrict models to the given indeces
 }

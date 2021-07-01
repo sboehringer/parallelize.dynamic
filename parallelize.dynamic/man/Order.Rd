@@ -6,3 +6,17 @@
 \usage{
 Order(v, ...)
 }
+\arguments{
+\item{v}{object (vector or data frame) for which order is to be calculated}
+
+\item{...}{additional arguemnts passed on to \code{order}}
+}
+\value{
+order of the object
+}
+\description{
+wrapper for order to allow multivariate ordering
+}
+\seealso{
+{order{}} which this function wraps around
+}

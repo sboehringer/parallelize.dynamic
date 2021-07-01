@@ -4,8 +4,15 @@
 \alias{parallelize_declare}
 \title{Declare static parallelization environment for parallel calls.}
 \usage{
-parallelize_declare(source = NULL, packages = NULL, copy = NULL,
-  reset = TRUE, config = NULL, salt = NULL, activeDictionary = "native")
+parallelize_declare(
+  source = NULL,
+  packages = NULL,
+  copy = NULL,
+  reset = TRUE,
+  config = NULL,
+  salt = NULL,
+  activeDictionary = "native"
+)
 }
 \arguments{
 \item{source}{Overwrite the \code{sourceFiles} entry in

@@ -2,6 +2,7 @@
 
 export(Lapply_getConfig)
 export(Lapply_setConfig)
+export(Lapply_setConfigValue)
 export(parallelize)
 export(parallelize_call)
 export(parallelize_declare)

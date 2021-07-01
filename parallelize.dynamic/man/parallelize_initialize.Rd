@@ -5,13 +5,22 @@
 \alias{Lapply_initialize}
 \title{Initialize dynamic parallelization of ensuing parallelize calls}
 \usage{
-parallelize_initialize(Lapply_config = get("Parallelize_config__"),
-  stateClass = "LapplyState", backend = "local",
-  freezerClass = "LapplyFreezer", ..., force_rerun = FALSE,
-  sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
-  copy_environments = TRUE, declare_reset = FALSE,
-  rngSeedCapsules = "LapplyRNGseedCapsule", no_parallelize_dynamic = F,
-  salt = NULL)
+parallelize_initialize(
+  Lapply_config = get("Parallelize_config__"),
+  stateClass = "LapplyState",
+  backend = "local",
+  freezerClass = "LapplyFreezer",
+  ...,
+  force_rerun = FALSE,
+  sourceFiles = NULL,
+  libraries = NULL,
+  parallel_count = NULL,
+  copy_environments = TRUE,
+  declare_reset = FALSE,
+  rngSeedCapsules = "LapplyRNGseedCapsule",
+  no_parallelize_dynamic = F,
+  salt = NULL
+)
 }
 \arguments{
 \item{Lapply_config}{A list describing possible configurations of the

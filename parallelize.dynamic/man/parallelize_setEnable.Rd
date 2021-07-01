@@ -21,6 +21,18 @@ parallelize_setEnable(state)
 \value{
 The returned value is undefined.
 }
+\description{
+Turn on/off the parallelization mechanism
+
+This function changes the definition of
+Apply/Lapply/Sapply/parallelize/parallelize_call to turn the parallelization
+mechanism on or off.
+
+This function changes the definition of
+Apply/Lapply/Sapply/parallelize/parallelize_call to turn the parallelization
+mechanism on or off. The global environment is modified by a call to this
+function.
+}
 \examples{
 
 	parallelize_setEnable(FALSE);
