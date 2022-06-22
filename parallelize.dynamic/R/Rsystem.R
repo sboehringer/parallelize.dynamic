@@ -83,6 +83,11 @@ path.absolute = absolutePath = function(path, home.dir = TRUE, ssh = TRUE) {
 		path = sprintf("%s/%s", Sys.getenv('HOME'), substr(path, 3, nchar(path)));
 	if (nchar(path) > 0 && substr(path, 1, 1) == "/") path else sprintf("%s/%s", getwd(), path)
 }
+pathSimplify = function(path) {
+	path = gsub('(^./|/.(?=/|$))', '', path, perl = TRUE);
+	return(path);
+}
+
 tempFileName = function(prefix, extension = NULL, digits = 6, retries = 5, inRtmp = FALSE,
 	createDir = FALSE, home.dir = TRUE, doNotTouch = FALSE) {
 	ext = if (is.null(extension)) '' else sprintf('.%s', extension);
@@ -202,7 +207,8 @@ File.remove = function(path, ..., agent = 'ssh', ssh = TRUE, logLevel = 6) {
 }
 
 # <i> remote operations
-File.symlink = function(from, to, replace = TRUE, agent = 'ssh', ssh = FALSE, logLevel = 6) {
+File.symlink = function(from, to, replace = TRUE, agent = 'ssh', ssh = FALSE, logLevel = 6,
+	warnings = FALSE) {
 	r = if (ssh) {
 		sp = splitPath(from, skipExists = TRUE, ssh = TRUE);
 		host = sp$userhost;
@@ -212,7 +218,9 @@ File.symlink = function(from, to, replace = TRUE, agent = 'ssh', ssh = FALSE, lo
 	} else {
 		Log(sprintf('symlink %s -> %s', qs(from), qs(to)), logLevel);
 		if (replace && file.exists(to)) file.remove(to);
-		file.symlink(from, to);
+		if (warnings)
+			file.symlink(from, to) else
+			suppressWarnings(file.symlink(from, to))
 	}
 	r
 }
@@ -437,7 +445,7 @@ handleTriggers = function(o, triggerDefinition = NULL) {
 		waitOption = if (is.null(waitForJids)) '' else
 			sprintf('--waitForJids %s', join(waitForJids, sep = ','));
 		message(cmd);
-		ncmd = sprintf('qsub.pl --jidReplace %s %s --unquote %s -- %s',
+		ncmd = sprintf('qsub.pl --type ogs --jidReplace %s %s --unquote %s -- %s',
 			jidFile, waitOption, qsubOptions, qs(cmd));
 		message(ncmd);
 		spec = list(cmd = ncmd, jidFile = jidFile);
@@ -581,9 +589,8 @@ silence = function(expr, verbose = FALSE) {
 	if (verbose || Sys.info()['sysname'] == 'Windows') eval(expr) else {
 		sink('/dev/null', type = 'output');
 		sink(stdout(), type = 'message');
+		on.exit({ sink(type = 'message'); sink(type = 'output'); });
 		r = eval(expr);
-		sink(type = 'message');
-		sink(type = 'output');
 		r
 	}
 }
@@ -617,6 +624,20 @@ SourceLocal = function(file, ...,
 		file0 = file.locate(file, prefixes = locations);
 			if (notE(envir)) sys.source(file = file0, envir = envir, ...) else source(file = file0, ...)
 	})
+}
+
+# on the fly activation of package w/o installation
+#	SourcePackage('~/src/Rprivate/Packages/plausibility/plausibility.R');
+SourcePackage = function(defFile, ...,
+	locations = c('', '.', sprintf('%s/src/Rscripts', Sys.getenv('HOME'))),
+	envir = NULL) {
+
+	dir = splitPath(defFile)$dir;
+	tmpEnv = new.env();
+	SourceLocal(defFile, locations = locations, envir = tmpEnv);
+	files = c(defFile, get('packageDefinition', tmpEnv)$files);
+
+	SourceLocal(files, locations = c(dir, locations), envir = envir);
 }
 
 
@@ -911,13 +932,16 @@ pathSimplify = function(p)gsub('[:]', '_', p)
 pathInsertPostfix = function(path, postfix, sep = '-')
 	Sprintf('%{fullbase}s%{sep}s%{postfix}s.%{ext}s', splitPath(path))
 
+# keys of input-list are folder names, use folderstring in key to create subfolders
 # 	createZip(list(results = c('r/ref1.html', 'r/ref2.html')), 'r/myZip.zip', doCopy = TRUE);
+# 	createZip(list(`results::sub` = c('r/ref1.html', 'r/ref2.html')), 'r/myZip.zip', doCopy = TRUE);
 
 createZip = function(input, output, pword, doCopy = FALSE, readmeText, readme, logOnly = FALSE,
-	absoluteSymlink = FALSE, simplifyFileNames = FALSE) {
+	absoluteSymlink = FALSE, simplifyFileNames = FALSE, folderString = '::') {
 	destDir = splitPath(output)$fullbase;
 	Dir.create(destDir);
 	nelapply(input, function(n, e) {
+		if (notE(folderString)) n = gsub(folderString, '/', n);
 		subdir = join(c(destDir, n, ''), '/');
 		Dir.create(subdir);
 		toFiles = list.kpu(SplitPath(e), 'file');

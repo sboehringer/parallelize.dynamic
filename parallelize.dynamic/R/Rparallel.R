@@ -459,6 +459,7 @@ LapplyGroupingFreezerClass = setRefClass('LapplyGroupingFreezer',
 	#
 	)
 )
+
 # The sentinel stack records entry points into parallelization for the different sequential rampUps
 #	occuring during parallelization the ramp down of a given Lapply is equivalent to the rampUp of
 #	the ensueing parallelization
@@ -511,6 +512,7 @@ LapplyExecutionStateClass = setRefClass('LapplyExecutionState',
 		rampUp <<- 1;
 		# copy current random seed
 		.self$storeRandomSeed();	#randomSeed <<- list();
+		#.self$addSentinel()
 		# overwrites
 		.self
 	},
@@ -625,7 +627,6 @@ LapplyExecutionStateClass = setRefClass('LapplyExecutionState',
 );
 LapplyExecutionStateClass$accessors(names(LapplyExecutionStateClass$fields()));
 
-
 #
 #	<p> core parallize functions
 #
@@ -729,7 +730,7 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 	stateClass = 'LapplyState', backend = 'local', freezerClass = 'LapplyFreezer', ...,
 	force_rerun = FALSE, sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
 	copy_environments = TRUE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule',
-	no_parallelize_dynamic = F, salt = NULL) {
+	no_parallelize_dynamic = FALSE, salt = NULL) {
 	# <p> check for turning off
 	if (backend == 'off') {
 		parallelize_setEnable(F);
@@ -738,17 +739,17 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 	# <p> misc setup
 	if (is.null(Lapply_config)) Lapply_config = Lapply_getConfig();
 	Log.setLevel(firstDef(Lapply_config$logLevel, Log.level(), 4));
-	parallelize_setEnable(T);
+	parallelize_setEnable(TRUE);
 
 	#
 	# <p> config
 	#
 	configPre = Lapply_createConfig();
-	sourceFiles = unique(c(
+	sourceFiles = vecCharNEU(c(	# non-empty, unique
 		if (declare_reset) c() else configPre$sourceFiles,
 		Lapply_config$sourceFiles, Lapply_config$backends[[backend]]$sourceFiles, sourceFiles
 	));
-	libraries = unique(c(
+	libraries = vecCharNEU(c(
 		if (no_parallelize_dynamic) c() else 'parallelize.dynamic',
 		if (declare_reset) c() else configPre$libraries,
 		Lapply_config$libraries, Lapply_config$backends[[backend]]$libraries, libraries
@@ -781,10 +782,12 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 			copy_environments = copy_environments,
 			seedCapsules = rngSeedCapsules,
 			activeDictionary = activeDictionary,
-			salt = salt
+			salt = salt,
+			initialized = TRUE
 		)
 	);
 	Lapply_setConfig(Lapply_config);
+	#print(list(force_rerun = Lapply_config$force_rerun));
 	# <p> backend
 	if (exists('Lapply_backend__',  envir = parallelize_env)) rm('Lapply_backend__', envir = parallelize_env);
 	# <p> iteration states
@@ -794,6 +797,44 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 		freezerClass = freezerClass, copy_environments = Lapply_config$copy_environments),
 		envir = parallelize_env);
 	NULL
+}
+
+ParallelizeComputeResources = function() {
+	source(options('parallelize.dynamic')$parallelize.dynamic$computeResources, local = TRUE);
+	return(Parallelize_config__);
+}
+
+# quick init
+ParallelizeInit = function(backendName, force_rerun = FALSE, no_parallelize_dynamic) {
+	Lapply_createConfig();
+	o = options('parallelize.dynamic')$parallelize.dynamic;
+	npd = firstDef(
+		ifelse(missing(no_parallelize_dynamic), list(c()), list(no_parallelize_dynamic))[[1]],
+		ifelse(notE(o$autoAddpLibrary), list(!o$autoAddpLibrary), list(NULL))[[1]],
+		FALSE
+	)
+	Lapply_setConfigValue(initialized = FALSE, backendName = backendName, force_rerun = force_rerun, no_parallelize_dynamic = npd);
+	parallelize_setEnable(backendName != 'off');
+}
+
+#parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Parallelize_config__'), 
+#	stateClass = 'LapplyState', backend = 'local', freezerClass = 'LapplyFreezer', ...,
+#	force_rerun = FALSE, sourceFiles = NULL, libraries = NULL, parallel_count = NULL,
+#	copy_environments = TRUE, declare_reset = FALSE, rngSeedCapsules = 'LapplyRNGseedCapsule',
+#	no_parallelize_dynamic = F, salt = NULL) {
+
+parallelize_initialize_late = function() {
+	cfg = Lapply_getConfig();
+	o = options('parallelize.dynamic')$parallelize.dynamic;
+	sourceFiles = c(o$sourceFiles, SourceCollected());
+	libraries = c(o$libraries, LibraryCollected());
+	parallelize_initialize(ParallelizeComputeResources(),
+		backend = cfg$backend, force_rerun = cfg$force_rerun,
+		sourceFiles = sourceFiles, libraries = libraries,
+		no_parallelize_dynamic = cfg$no_parallelize_dynamic
+	);
+	#Lapply_setConfigValue(initialized = TRUE);	# done in parallelize_initialize
+	return(Lapply_getConfig());
 }
 
 #  parallelize_declare
@@ -915,7 +956,9 @@ parallelize_lookup = Lapply_lookup = function(name) {
 Lapply_storeSeeds = function() {
 	# make work standalone and from package
 	getConfig = if (exists('Lapply_getConfig')) Lapply_getConfig else
-		parallelize.dynamic:::Lapply_getConfig;
+		# <!> changed 20.6.2022
+		getFromNamespace('Lapply_getConfig', 'parallelize.dynamic');
+		#parallelize.dynamic:::Lapply_getConfig;
 	o = getConfig();
 	capsules = lapply(o$seedCapsules, function(capsule) {
 		cap = new(capsule);
@@ -1003,8 +1046,8 @@ Lapply_config_default = list(
 	max_depth = 2,
 	parallel_count = 32,
 	parallel_stack = 10,
-	provideChunkArgument = F,
-	offline = F,
+	provideChunkArgument = FALSE,
+	offline = FALSE,
 	stateDir = '.',
 	wait_interval = 30,
 	# copy other arguments through a freeze/thaw (necessary for delayed data objects)
@@ -1015,7 +1058,10 @@ Lapply_config_default = list(
 	# appended to names prior to calculating md5 -> allow to distinguish identical calls
 	salt = '',
 	# replicate entries of the data dictionary automatically, needs to be implemented by backend
-	copyDictionary = T
+	copyDictionary = TRUE,
+	# set wheter initialized quickly and proper initialization has to be performed
+	#	see also: ParallelizeInit
+	initialized = TRUE
 );
 Lapply_backendConfig_default = list(
 	doNotReschedule = F, doSaveResult = F
@@ -1456,16 +1502,21 @@ parallelize_internal = function(call_, Lapply_local = rget('Lapply_local', defau
 #'     all(sapply(list(r0, r1, r2, r3, r4, r5), function(l)all(l == r0)))
 #'   )));
 #' 
-parallelize = parallelize_backup = function(.f, ..., Lapply_local = rget('Lapply_local', default = FALSE),
+P__ = parallelize = parallelize_backup = function(.f, ..., Lapply_local = rget('Lapply_local', default = FALSE),
 	parallelize_wait = TRUE, envir__ = parent.frame()) {
+	# check initialization
+	if (!Lapply_getConfig()$initialized) parallelize_initialize_late();
 	envir_evaled = envir__;
 	call_ = list(fct = .f, args = list(...), envir = envir_evaled, name = as.character(sys.call()[[2]]));
 	parallelize_internal(call_, Lapply_local = Lapply_local, parallelize_wait = parallelize_wait);
 }
 
 
-parallelize_call = parallelize_call_backup = function(.call, ...,
+P_ = parallelize_call = parallelize_call_backup = function(.call, ...,
 	parallelize_wait = TRUE, envir__ = parent.frame()) {
+	# check initialization
+	if (!Lapply_getConfig()$initialized) parallelize_initialize_late();
+
 	envir_evaled = envir__;
 	call_  = encapsulateCall(sys.call()[[2]], ..., envir__ = envir_evaled);
 	parallelize_internal(call_, ..., parallelize_wait = parallelize_wait);

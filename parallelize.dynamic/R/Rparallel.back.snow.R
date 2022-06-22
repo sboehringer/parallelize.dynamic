@@ -54,10 +54,11 @@ setClass('ParallelizeBackendSnow',
 setMethod('initialize', 'ParallelizeBackendSnow', function(.Object, config, ...) {
 	.Object = callNextMethod(.Object, config = config, ...);
 	args = List_(config[c('sourceFiles', 'localNodes', 'splitN', 'libraries')], rm.null = T);
-	args$libraries = c(args$libraries, 'parallelize.dynamic');
+	#args$libraries = c(args$libraries, 'parallelize.dynamic');
 	args$varsEnv = list(parallelize_env = 'Lapply_globalConfig__');
 	args$doSinkOutput = '~/tmp/cluster_debug/plink';
 	#args = c(args, list(evalEnvironment = T));
+	#print(args)
 	do.call('specifyCluster', args);
 	.Object
 });
@@ -73,7 +74,10 @@ setMethod('lapply_dispatchFinalize', 'ParallelizeBackendSnow', function(self) {
 # 	});
 	r = clapply(calls, function(call) {
 		parallelize_setEnable(F);
-		parallelize.dynamic:::Lapply_setConfigValue(activeDictionary = Lapply_getConfig()$backend);
+		# <!> changed 20.6.2022
+		setConfigValue = if (exists('Lapply_setConfigValue')) Lapply_setConfigValue else
+			getFromNamespace('Lapply_setConfigValue', 'parallelize.dynamic');
+		setConfigValue(activeDictionary = Lapply_getConfig()$backend);
  		#sink('/tmp/debug', append = T);print(Lapply);sink();
 		#call = callEvalArgs(call);
 # 		sink('/tmp/debug', append = T);print(join(names(as.list(environment(call$fct)))));print(as.list(environment(as.list(environment(call$fct))$f)));print(str(call));sink();
