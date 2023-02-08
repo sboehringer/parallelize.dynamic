@@ -16,13 +16,15 @@ my $helpText = <<HELP_TEXT;
 				[./qsub_outputDir]
 	--jid=path		append jid to file
 	--jidReplace=path	write jid to file
-	--priority number	set priority to number (-1000 to 1000 for SGE) [0]
-	--memory size		set memory limit (e.g. 8G)
-	--type scheduler	cluster management software: [slurm]|ogs
-	--workingDir		set workding directory before command execution
-	--logFiles			prefix of logfiles in outputdir
-	--temp				write to temporary logfile dir
-	--runningJobs		list ids of running jobs on the cluster, exit
+	--priority number	set priority to number
+				(-1000 to 1000 for SGE) [0]
+	--memory size	set memory limit (e.g. 8G)
+	--type schduler	cluster management software: slurm(default)|ogs
+	--workingDir	set workding directory before command execution
+	--logFiles		prefix of logfiles in outputdir
+	--temp			write to temporary logfile dir
+	--runningJobs	list ids of running jobs on the cluster, exit
+	--time			run time limit in slurm format days-hours:min:sec [7-08:00:00]
 	# Options to qsub.pl have to be terminated by --
 
 	# Environment variables
@@ -116,6 +118,7 @@ CMD
 #SBATCH --oversubscribe
 #SBATCH --mem %{MEMORY}
 #SBATCH --dependency afterany:%{DEPENDON}
+#SBATCH --time %{TIME}
 
 %{EXPORTS}
 %{SOURCE}
@@ -252,7 +255,8 @@ sub submitCommandFromTemplate { my ($cmd, $o, $template) = @_;
 		'%{LOGOUTPUT}' => qs($logfDir. '/'. $logf),
 		'%{EXPORTS}' => join("\n", (map { "export $_" } @env)),
 		'%{SOURCE}' => join("\n", (map { ". $_" } @sourceFiles)),
-		'%{DEPENDON}' => (@jids > 0)? join(':', @jids): $interpolationMagic,
+		'%{DEPENDON}' => $#jids >= 0? join(':', @jids): $interpolationMagic,
+		'%{TIME}' => $o->{time},
 	);
 	my $t = mergeDictToString(\%i, $template);
 	# delete lines without interpolated value
@@ -294,7 +298,7 @@ sub PrintRunningJobsSlurmOgs { my ($o) = @_;
 	return 0;
 }
 sub PrintRunningJobsSlurm { my ($o) = @_;
-	return System("squeue --me --format '%i' | tail -n +2", 2);
+	return System("squeue --format '%i' | tail -n +2", 2);
 }
 sub printRunningJobs { my ($o) = @_;
 	my $f = 'PrintRunningJobs'. ucfirst($o->{type});
@@ -316,9 +320,10 @@ sub printRunningJobs { my ($o) = @_;
 		sourceFiles => firstDef($ENV{QSUB_SOURCEFILES}, ''),
 		setenvsep => '+++',
 		memory => firstDef($ENV{QSUB_MEMORY}, '4G'),
-		Ncpu => 1,
+		Ncpu => firstDef($ENV{QSUB_NCPU}, 1),
 		excludeNodes => firstDef($ENV{QSUB_EXCLUDENODES}, undef),
 		type => firstDef($ENV{QSUB_DEFAULTTYPE}, 'slurm'),
+		time => '7-08:00:00',
 	};
 	my $optionsPresent = int(grep { $_ eq '--' } @ARGV) > 0;
 	# <!><i> proper command line splitting
@@ -333,6 +338,7 @@ sub printRunningJobs { my ($o) = @_;
 		'outputDir=s', 'temp!', 'logFiles=s', 'workingDir=s',
 		'unquote!', 'queue=s', 'priority=i', 'cmdFromFile=s', 'checkpointing',
 		'memory=s', 'Ncpu=i', 'setenv=s', 'setenvsep=s', 'sourceFiles=s', 'excludeNodes=s', 'type=s',
+		'time=s',
 	);
 	$o->{outputDir} = tempFileName("$o->{tmpPrefix}_logs/log", undef, { mkdir => 1 }) if ($o->{temp});
 	# <!> heuristic for unquoting

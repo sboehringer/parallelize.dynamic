@@ -11,13 +11,17 @@ parallelize_setEnable = function(state) {
 		assign('Sapply', sapply, envir = .GlobalEnv);
 		assign('Apply', apply, envir = .GlobalEnv);
 		assign('parallelize', parallelize_dummy, envir = .GlobalEnv);
+		assign('P__', parallelize_dummy, envir = .GlobalEnv);
 		assign('parallelize_call', parallelize_call_dummy, envir = .GlobalEnv);
+		assign('P_', parallelize_call_dummy, envir = .GlobalEnv);
 	} else {
 		assign('Lapply', Lapply_backup, envir = .GlobalEnv);
 		assign('Sapply', Sapply_backup, envir = .GlobalEnv);
 		assign('Apply', Apply_backup, envir = .GlobalEnv);
 		assign('parallelize', parallelize_backup, envir = .GlobalEnv);
+		assign('P__', parallelize_backup, envir = .GlobalEnv);
 		assign('parallelize_call', parallelize_call_backup, envir = .GlobalEnv);
+		assign('P_', parallelize_call_backup, envir = .GlobalEnv);
 	}
 }
 

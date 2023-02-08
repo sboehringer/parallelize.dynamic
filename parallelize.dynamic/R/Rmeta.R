@@ -249,14 +249,18 @@ encapsulateCall = function(.call, ..., envir__ = environment(.call), do_evaluate
 	unbound_functions = FALSE) {
 	# function body of call
 	name = as.character(.call[[1]]);
-	fct = get(name);
+	fct = get(name, envir = envir__);
 	callm = if (!is.primitive(fct)) {
 		callm = match.call(definition = fct, call = .call);
 		as.list(callm)[-1]
 	} else as.list(.call)[-1];
 	args = if (do_evaluate_args__) {
 		nlapply(callm, function(e)eval(callm[[e]], envir = envir__))
-	} else nlapply(callm, function(e)callm[[e]])
+	} else {
+		#nlapply(callm, function(e)callm[[e]])
+		# <A> changed 1.12.2022
+		callm
+	}
 	# unbound variables in body fct
 	#unbound_vars = 
 
@@ -271,8 +275,35 @@ encapsulateCall = function(.call, ..., envir__ = environment(.call), do_evaluate
 	);
 	call_
 }
+# fct_: symbol of the function, envir_get: environmen to get the function from using get
+encapsulateFunction = function(fct_, envir__ = envir__, envir_get = envir__) {
+	list(
+		fct = get(fct_, envir = envir_get),
+		envir = envir__,
+		args = list(),
+		name = as.character(fct_)
+	)
+}
 
+encapsulateCallOrFunction = function(call_, envir__) {
+	if ((is.symbol(call_)))
+		encapsulateFunction(call_, envir__) else
+		encapsulateCall(call_, envir__ = envir__)
+}
 
+Compose = function(F2, F1) {
+	function(...) {
+		r1 = do.call(F1$fct, args = c(F1$args, list(...)), envir = F1$envir);
+		r2 = do.call(F2$fct, args = c(list(r1), F2$args), envir = F2$envir);
+		return(r2);
+	}
+}
+
+`%.%` <- compose <- function(f2, f1, envir__ = parent.frame()) {
+	F2  = encapsulateCallOrFunction(sys.call()[[2]], envir__ = envir__);
+	F1  = encapsulateCallOrFunction(sys.call()[[3]], envir__ = envir__);
+	return(Compose(F2, F1));
+}
 
 #' Deparsing of expression
 #'

@@ -429,6 +429,11 @@ handleTriggers = function(o, triggerDefinition = NULL) {
 # 		cwd = sp$path, ssh_host = sp$userhost,
 # 		qsubPath = sprintf('%s/qsub', sp$path), qsubMemory = self@config$qsubRampUpMemory);
 
+.systemSeps = list(Linux = ';', Windows = '&');
+JoinCmds = function(cmds, system = Sys.info()['sysname']) {
+	sep = Sprintf(' %{sep}s ', sep = .systemSeps[[ system ]]);
+	return(join(cmds, sep));
+}
 
 .System.fileSystem = list(
 	#tempfile = function(prefix, ...)tempfile(splitPath(prefix)$base, tmpdir = splitPath(prefix)$dir, ...),
@@ -453,9 +458,26 @@ handleTriggers = function(o, triggerDefinition = NULL) {
 	},
 	post = function(spec, ret, ...) { list(jid = as.integer(spec$fs$readFile(spec$jidFile))) }
 	),
-	
+
+	qsub_slurm = list(pre = function(cmd, spec,
+		jidFile = spec$fs$tempfile(sprintf('/tmp/R_%s/qsub_pattern', Sys.getenv('USER'))),
+		qsubOptions = '',
+		waitForJids = NULL, ...) {
+		Dir.create(jidFile, treatPathAsFile = TRUE);
+		waitOption = if (is.null(waitForJids)) '' else
+			sprintf('--waitForJids %s', join(waitForJids, sep = ','));
+		message(cmd);
+		ncmd = sprintf('qsub.pl --type slurm --jidReplace %s %s --unquote %s -- %s',
+			jidFile, waitOption, qsubOptions, qs(cmd));
+		message(ncmd);
+		spec = list(cmd = ncmd, jidFile = jidFile);
+		spec
+	},
+	post = function(spec, ret, ...) { list(jid = as.integer(spec$fs$readFile(spec$jidFile))) }
+	),
+
 	cwd = list(pre = function(cmd, spec, cwd = '.', ...) {
-		ncmd = sprintf('cd %s ; %s', qs(cwd), cmd);
+		ncmd = JoinCmds(c(Sprintf('cd %{cwd}q'), cmd));
 		spec = list(cmd = ncmd);
 		spec
 	},
@@ -465,8 +487,9 @@ handleTriggers = function(o, triggerDefinition = NULL) {
 	ssh = list(pre = function(cmd, spec, ssh_host = 'localhost', ssh_source_file = NULL, ...,
 		ssh_single_quote = TRUE) {
 		if (!is.null(ssh_source_file)) {
-			cmd = sprintf('%s ; %s',
-				join(paste('source', qs(ssh_source_file), sep = ' '), ' ; '), cmd);
+			#cmd = sprintf('%s ; %s',
+			#	join(paste('source', qs(ssh_source_file), sep = ' '), ' ; '), cmd);
+			cmd = JoinCmds(c(paste('source', qs(ssh_source_file), sep = ' '), cmd))
 		}
 		fmt = if (ssh_single_quote) 'ssh %{ssh_host}s %{cmd}q' else 'ssh %{ssh_host}s %{cmd}Q';
 		spec = list(cmd = Sprintf(fmt));
@@ -494,7 +517,7 @@ assign(".system.doLogOnly", FALSE, envir = System_env__);
 
 System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	doLog = TRUE, printOnly = NULL, return.output = FALSE,
-	pattern = NULL, patterns = NULL, ..., return.cmd = FALSE, return.error = FALSE) {
+	pattern = NULL, patterns = NULL, ..., return.cmd = FALSE, return.error = FALSE, wd = NULL) {
 	# prepare
 	if (!exists(".system.doLogOnly", envir = System_env__))
 		assign(".system.doLogOnly", FALSE, envir = System_env__);
@@ -533,7 +556,7 @@ System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	if (doLog){ Log(sprintf("system: %s", cmd), logLevel); }
 	# system call
 	ret = NULL;
-	if (!doLogOnly) ret = system(cmd);
+	if (!doLogOnly) ret = if (notE(wd)) exprInDir(system(cmd), wd) else system(cmd);
 	# return value
 	r = list(error = ret);
 	if (return.output & !doLogOnly) {
@@ -556,20 +579,23 @@ System = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
 	r
 }
 SystemS = function(cmd, logLevel = get('DefaultLogLevel', envir = Log_env__),
-	doLog = TRUE, printOnly = NULL, return.output = FALSE, return.cmd = FALSE, ..., envir = parent.frame()) {
+	doLog = TRUE, printOnly = NULL, return.output = FALSE, return.cmd = FALSE, ..., envir = parent.frame(), wd = NULL) {
 
 	cmd = Sprintf(cmd, ..., envir = envir);
-	System(cmd, logLevel, doLog, printOnly, return.output, return.cmd = return.cmd);
+	System(cmd, logLevel, doLog, printOnly, return.output, return.cmd = return.cmd, wd = wd);
 }
 
+qsub_wait_function = function(r, ...) {
+	ids = if (is.list(r[[1]]) & !is.null(r[[1]]$jid)) list.kp(r, 'jid', do.unlist = TRUE) else r$jid;
+	idsS = if (length(ids) == 0) '' else paste(ids, collapse = ' ');
+	System(sprintf('qwait.pl %s', idsS), ...);
+}
+	
 # wait on job submitted by system
 .System.wait.patterns = list(
 	default = function(r, ...)(NULL),
-	qsub = function(r, ...) {
-		ids = if (is.list(r[[1]]) & !is.null(r[[1]]$jid)) list.kp(r, 'jid', do.unlist = TRUE) else r$jid;
-		idsS = if (length(ids) == 0) '' else paste(ids, collapse = ' ');
-		System(sprintf('qwait.pl %s', idsS), ...);
-	}
+	qsub = qsub_wait_function,
+	qsub_slurm = qsub_wait_function
 );
 System.wait = function(rsystem, pattern = NULL, ...) {
 	r = if (!is.null(pattern)) .System.wait.patterns[[pattern]](rsystem, ...) else NULL;
@@ -795,10 +821,27 @@ stdOutFromCall = function(call_) {
 # 	md5
 # }
 # same as above, less dpendencies
-md5sumString = function(s, ...)substr(SystemS('echo -n %{s}q | md5sum', return.output = TRUE)$output, 1, 32)
-sha256sumString = function(s, ...)substr(SystemS('echo -n %{s}q | sha256sum', return.output = TRUE)$output, 1, 32)
-sha256sumPath = function(path, ...)substr(SystemS('sha256sum %{path}q', return.output = TRUE)$output, 1, 64)
+md5sumString = function(s, length = 32, ..., logLevel = 5)
+	substr(
+		SystemS('echo -n %{s}q | md5sum', return.output = TRUE, logLevel = logLevel)$output
+	, 1, min(length, 32))
+sha256sumString = function(s, length = 32, ..., logLevel = 5)
+	substr(
+		SystemS('echo -n %{s}q | sha256sum', return.output = TRUE, logLevel = logLevel)$output
+	, 1, min(length, 64))
+sha256sumPath = function(path, length = 64, ..., logLevel = 5)
+	substr(
+		SystemS('sha256sum %{path}q', return.output = TRUE, logLevel = logLevel)$output
+	, 1, min(length, 64))
 
+hashPathContent = function(path, type = 'sha256', length = 64,..., logLevel = 5) {
+	f = get(paste0(type, 'sumPath'));
+	f(path, length, ..., logLevel = logLevel)
+}
+hashStringContent = function(path, type = 'sha256', length = 64,..., logLevel = 5) {
+	f = get(paste0(type, 'sumString'));
+	f(path, length, ..., logLevel = logLevel)
+}
 
 #
 #	<p> package documentation
@@ -831,7 +874,9 @@ Install_local = function(path, ..., tarDir = tempdir()) {
 	sp = splitPath(path);
 	pkgPath = Sprintf('%{tarDir}s/%{base}s.tar.gz', sp);
 	# dir component is containing folder
-	System(Sprintf('cd %{dir}Q ; tar czf %{pkgPath}Q %{file}Q', sp), 2);
+	#System(Sprintf('cd %{dir}Q ; tar czf %{pkgPath}Q %{file}Q', sp), 2);
+	LogS(2, 'Creating archive: %{pkgPath}s from: %{file}s in dir %{dir}s', sp);
+	exprInDir(tar(pkgPath, sp$file, compression = 'gzip'), sp$dir);
 	#lib = list(...)$lib;
 	#libLocation = if (is.null(lib)) 'default location' else lib;
 	#LogS(4, 'Installing to lib:%{libLocation}s');
@@ -935,11 +980,13 @@ pathInsertPostfix = function(path, postfix, sep = '-')
 # keys of input-list are folder names, use folderstring in key to create subfolders
 # 	createZip(list(results = c('r/ref1.html', 'r/ref2.html')), 'r/myZip.zip', doCopy = TRUE);
 # 	createZip(list(`results::sub` = c('r/ref1.html', 'r/ref2.html')), 'r/myZip.zip', doCopy = TRUE);
+#	values are slash-dependend dest = 'source' copies into dest/source; dest = source/, copies into dest
 
 createZip = function(input, output, pword, doCopy = FALSE, readmeText, readme, logOnly = FALSE,
 	absoluteSymlink = FALSE, simplifyFileNames = FALSE, folderString = '::') {
 	destDir = splitPath(output)$fullbase;
 	Dir.create(destDir);
+	if (!missing(readmeText)) writeFile(Sprintf('%{destDir}s/README'), readmeText);
 	nelapply(input, function(n, e) {
 		if (notE(folderString)) n = gsub(folderString, '/', n);
 		subdir = join(c(destDir, n, ''), '/');
@@ -947,7 +994,8 @@ createZip = function(input, output, pword, doCopy = FALSE, readmeText, readme, l
 		toFiles = list.kpu(SplitPath(e), 'file');
 		if (simplifyFileNames) toFiles = sapply(toFiles, pathSimplify);
 		to = paste(subdir, toFiles, sep = '/');
-		if (doCopy) file.copy(e, to) else {
+		LogS(4, 'Copy: %{e}s --> %{to}s');
+		if (doCopy) file.copy(e, to, recursive = TRUE) else {
 			#from = relativePath(subdir, e);
 			from = absolutePath(e);
 			if (absoluteSymlink) from = NormalizePath(paste(splitPath(subdir)$absolute, from, sep = '/'));

@@ -784,6 +784,9 @@ parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Paral
 			activeDictionary = activeDictionary,
 			salt = salt,
 			initialized = TRUE
+		),
+		list(parallel_count = firstDef(parallel_count, backendConfig$parallel_count,
+			Lapply_config$parallel_count, Lapply_config_default$parallel_count)
 		)
 	);
 	Lapply_setConfig(Lapply_config);
@@ -805,16 +808,20 @@ ParallelizeComputeResources = function() {
 }
 
 # quick init
-ParallelizeInit = function(backendName, force_rerun = FALSE, no_parallelize_dynamic) {
+ParallelizeInit = function(backendName = 'off', force_rerun = FALSE, no_parallelize_dynamic, salt = NULL) {
 	Lapply_createConfig();
+	if (backendName == 'off') {
+		parallelize_setEnable(FALSE);
+		return(NULL);
+	}
 	o = options('parallelize.dynamic')$parallelize.dynamic;
 	npd = firstDef(
 		ifelse(missing(no_parallelize_dynamic), list(c()), list(no_parallelize_dynamic))[[1]],
 		ifelse(notE(o$autoAddpLibrary), list(!o$autoAddpLibrary), list(NULL))[[1]],
 		FALSE
 	)
-	Lapply_setConfigValue(initialized = FALSE, backendName = backendName, force_rerun = force_rerun, no_parallelize_dynamic = npd);
-	parallelize_setEnable(backendName != 'off');
+	Lapply_setConfigValue(initialized = FALSE, backendName = backendName, force_rerun = force_rerun, no_parallelize_dynamic = npd, salt = salt);
+	parallelize_setEnable(TRUE);
 }
 
 #parallelize_initialize = Lapply_initialize = function(Lapply_config = get('Parallelize_config__'), 
@@ -829,9 +836,10 @@ parallelize_initialize_late = function() {
 	sourceFiles = c(o$sourceFiles, SourceCollected());
 	libraries = c(o$libraries, LibraryCollected());
 	parallelize_initialize(ParallelizeComputeResources(),
-		backend = cfg$backend, force_rerun = cfg$force_rerun,
+		backend = cfg$backendName, force_rerun = cfg$force_rerun,
 		sourceFiles = sourceFiles, libraries = libraries,
-		no_parallelize_dynamic = cfg$no_parallelize_dynamic
+		no_parallelize_dynamic = cfg$no_parallelize_dynamic,
+		salt = cfg$salt
 	);
 	#Lapply_setConfigValue(initialized = TRUE);	# done in parallelize_initialize
 	return(Lapply_getConfig());

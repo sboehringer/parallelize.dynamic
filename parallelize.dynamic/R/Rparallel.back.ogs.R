@@ -155,7 +155,7 @@ remoteEnvSetup = function(remoteDir) {
 
 freezeCallOGS = function(self, ..f, ...,
 	freeze_file = tempfile(), freeze_control = list(), waitForJids = c(),
-	patterns = 'qsub', cwd = NULL, ssh_host = 'localhost', ssh_source_file = NULL,
+	patterns = 'qsub_slurm', cwd = NULL, ssh_host = 'localhost', ssh_source_file = NULL,
 	qsubPath = parallelizationStatePath(self, 'qsub', ext = ''),
 	qsubMemory = '4G', qsubOptionsAdd = '',
 	envir = parent.frame(), thaw_transformation = identity, freeze_env_eval = F,

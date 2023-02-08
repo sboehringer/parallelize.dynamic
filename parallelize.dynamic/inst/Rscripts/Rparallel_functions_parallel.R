@@ -6,5 +6,5 @@
 Lapply <- parallelize.dynamic:::Lapply_backup;
 Sapply <- parallelize.dynamic:::Sapply_backup;
 Apply <- parallelize.dynamic:::Apply_backup;
-parallelize <- parallelize.dynamic:::parallelize_backup;
-parallelize_call <- parallelize.dynamic:::parallelize_call_backup;
+P__ <- parallelize <- parallelize.dynamic:::parallelize_backup;
+P_ <- parallelize_call <- parallelize.dynamic:::parallelize_call_backup;

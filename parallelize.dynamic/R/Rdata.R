@@ -223,6 +223,9 @@ Which.min = function(l, last.min = FALSE, default = NA) {
 	r = if (last.min) (length(l) - which.min(rev(l)) + 1) else which.min(l);
 	r
 }
+
+is_ordered = function(v)all(order(v) == seq(length(v)))
+
 # capturesN: named captures; for each name in captureN put the captured value assuming names to be ordered
 # captures: fetch only first capture per match <!> deprecated
 # capturesAll: fetch all caputers for each match
@@ -2285,16 +2288,16 @@ MC = function(m) {
 
 # like table but produce columns for all numbers 1..n (not only for counts > 0)
 # cats are the expected categories
-table.n = function(v, n, min = 1, categories = NULL) {
+table.n = function(v, n, min = 1, categories = NULL, useNA = 'no') {
 	if (is.null(categories)) categories = min:n;
-	t = as.vector(table(c(categories, v)) - rep(1, length(categories)));
+	t = as.vector(table(c(categories, v), useNA = useNA) - rep(1, length(categories)));
 	t
 }
 
 tableFreqMarg = function(tab, margin = 2)apply(as.matrix(tab), margin, vn)
 
-table.freq = function(v, byCol = TRUE) {
-	t0 = table(v);
+table.freq = function(v, byCol = TRUE, useNA = 'no') {
+	t0 = table(v, useNA = useNA);
 	r = if (is.vector(v) || is.factor(v) || is.numeric(v) || ncol(v) == 1) { t0 / sum(t0) } else {
 		if (byCol) tableFreqMarg(t0) else tableFreqMarg(t0, 1)
 	}
@@ -2305,14 +2308,22 @@ table.n.freq = function(...) {
 	r = t0 / sum(t0);
 	r
 }
-table2df = function(tab) {
+table2df = function(tab, perc = FALSE, total = FALSE) {
 	df0 = Df_(tab);
 	nms = setdiff(names(df0), 'Freq');
 	f = do.call(formulaWith, as.list(nms));
-	dcast(df0, f, value.var= 'Freq')
+	df1 = dcast(df0, f, value.var= 'Freq');
+	tot = apply(df1[, -1], 1, sum, na.rm = T);
+	df2 = Df_(df1);
+	if (perc) df2 = cbind(df2, Df_(df1[, -1] / tot, names = paste0(names(df1)[-1], 'perc')));
+	if (total) df2$Total = tot;
+	return(df2);
 }
-Table = function(v, min, max, ..., cats, asDf = FALSE) {
-	if (missing(min) && missing(max) && missing(cats)) return(table(v, ...));
+Table = function(v, min, max, ..., cats, asDf = FALSE, perc = FALSE, total = FALSE) {
+	if (missing(min) && missing(max) && missing(cats)) {
+		t0 = table(v);
+		return(if (asDf) table2df(t0, perc, total) else t0);
+	}
 	if (!missing(cats)) {
 		d = Df_(lapply(v, Avu));
 		catsV = SetNames(Df_(merge.multi.list(cats)), names(d));
@@ -2322,11 +2333,20 @@ Table = function(v, min, max, ..., cats, asDf = FALSE) {
 		if (missing(min)) min = min(v);
 		if (missing(max)) max = max(v);
 		t0 = table.n(v, n = max, min = min);
-		return(if (asDf) table2df(t0) else t0);
+		return(if (asDf) table2df(t0, perc, total) else t0);
 	}
 }
-TableDf = function(v, min, max, ..., cats, asDf = TRUE)Table(v, min, max, ..., cats = cats, asDf = asDf);
+TableDf = function(v, min, max, ..., cats, asDf = TRUE, perc = FALSE, total = FALSE)
+	Table(v, min, max, ..., cats = cats, asDf = asDf, perc = perc, total = total);
 v2freq = function(v)(v/sum(v))
+
+TableReshaped = function(df, reshape = names(df), replace = list(Freq. = '')) {
+	tab = table(df)
+	tabReshaped = reshape.wide(Df_(tab), reshape[1], reshape[-1]);
+	if (notE(replace)) names(tabReshaped) = vector.replace(names(tabReshaped), list(Freq. = ''), regex = T);
+	return(tabReshaped);
+}
+
 
 #
 #	<p> numeric function
@@ -3456,7 +3476,7 @@ Merge = function(x, y, by = intersect(names(x), names(y)), ..., safemerge = TRUE
 	r
 }
 
-MergeByRowNanmes = function(x, y, ...) {
+MergeByRowNames = function(x, y, ...) {
 	dMerge = Merge(Df(x, ROW_NAMES__ = row.names(x)), Df(y, ROW_NAMES__ = row.names(y)),
 		by = 'ROW_NAMES__', ...)
 	Df_(dMerge, min_ = 'ROW_NAMES__', row.names = dMerge$ROW_NAMES__)

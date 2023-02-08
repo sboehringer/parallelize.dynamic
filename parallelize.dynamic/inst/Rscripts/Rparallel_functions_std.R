@@ -6,5 +6,5 @@
 Lapply <- lapply;
 Sapply <- sapply;
 Apply <- apply;
-parallelize <- parallelize.dynamic:::parallelize_dummy;
-parallelize_call <- parallelize.dynamic:::parallelize_call_dummy;
+P__ <- parallelize <- parallelize.dynamic:::parallelize_dummy;
+P_ <- parallelize_call <- parallelize.dynamic:::parallelize_call_dummy;
